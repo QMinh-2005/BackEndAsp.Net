@@ -54,7 +54,7 @@ public partial class WebBadmintonContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=DESKTOP-S80KR1F\\SQLEXPRESS;Initial Catalog=Web_Badminton;Integrated Security=True;Trust Server Certificate=True");
+        => optionsBuilder.UseSqlServer("Data Source=DESKTOP-S80KR1F\\SQLEXPRESS;Initial Catalog=Web_Badminton;Integrated Security=True;Encrypt=True;Trust Server Certificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +64,9 @@ public partial class WebBadmintonContext : DbContext
 
             entity.Property(e => e.BrandId).HasColumnName("BrandID");
             entity.Property(e => e.BrandName).HasMaxLength(100);
+            entity.Property(e => e.Slug)
+                .HasMaxLength(100)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Cart>(entity =>
@@ -96,6 +99,9 @@ public partial class WebBadmintonContext : DbContext
 
             entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
             entity.Property(e => e.CategoryName).HasMaxLength(100);
+            entity.Property(e => e.Slug)
+                .HasMaxLength(100)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Customer>(entity =>
@@ -212,7 +218,13 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.BasePrice).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.BrandId).HasColumnName("BrandID");
             entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
+            entity.Property(e => e.DiscountPrice).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.MainImageUrl).HasMaxLength(500);
             entity.Property(e => e.ProductName).HasMaxLength(250);
+            entity.Property(e => e.Slug)
+                .HasMaxLength(255)
+                .IsUnicode(false);
+            entity.Property(e => e.SoldQuantity).HasDefaultValue(0);
 
             entity.HasOne(d => d.Brand).WithMany(p => p.Products)
                 .HasForeignKey(d => d.BrandId)

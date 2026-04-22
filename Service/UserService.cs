@@ -12,7 +12,7 @@ namespace MyOwnLearning.Service
         Task<User?> Authenticate(string email, string password);
         Task<(List<User> users, int TotalCount)> Search(string keyword);
         Task<User> CreateUserByAdminAsync(User user, string password, IEnumerable<string> roles);
-
+        Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword);
     }
 
     public class UserService : IUserService
@@ -86,6 +86,24 @@ namespace MyOwnLearning.Service
             }
             await _userRepository.AddAsync(user);
             return user;
+        }
+        public async Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword)
+        {
+            // Lấy user từ Repository (đã có sẵn trong Repository base)
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+
+            // Kiểm tra mật khẩu cũ (Sử dụng hàm IsValidPassword của bạn trong AuthService)
+            bool isValid = _authService.IsValidPassword(oldPassword, user.Salt, user.PasswordHash);
+            if (!isValid) throw new Exception("Mật khẩu cũ không chính xác.");
+
+            // Hash mật khẩu mới và cập nhật
+            byte[] salt;
+            user.PasswordHash = _authService.HashPassword(newPassword, out salt);
+            user.Salt = salt;
+
+            await _userRepository.UpdateAsync(user);
+            return true;
         }
     }
 }

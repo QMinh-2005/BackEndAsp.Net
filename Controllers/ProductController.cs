@@ -2,9 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
+using MyOwnLearning.DTO.Response;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 using MyOwnLearning.Repositories;
+using MyOwnLearning.Service;
 
 namespace MyOwnLearning.Controllers
 {
@@ -13,81 +15,60 @@ namespace MyOwnLearning.Controllers
 
     public class ProductController : ControllerBase
     {
-        private readonly IProductRepository _productRepository;
-        public ProductController(IProductRepository productRepository)
+        private readonly IProductService _productService;
+        public ProductController(IProductService productService)
         {
-            _productRepository = productRepository;
+            _productService = productService;
         }
 
-
-        [HttpGet]
-        public async Task<ActionResult<List<Product>>> GetAllProducts()
-        {
-            var res = await _productRepository.GetAll();
-            return Ok(res.products);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetByIdAsync(int id)
-        {
-            var res = await _productRepository.GetByIdAsync(id);
-            if (res == null)
-            {
-                return NotFound();
-            }
-            return Ok(res);
-        }
-
-        //lấy sản phẩm có điều kiện lọc
         [HttpGet("searchAsync")]
         public async Task<IActionResult> SeacrhAsync(
             [FromQuery] string? keyword,
+            [FromQuery] string? categorySlug, // Hứng tham số từ FE
+            [FromQuery] string? brandSlug,
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice,
-            [FromQuery] bool? Voucher)
+            [FromQuery] bool? Voucher,
+            int page = 1,
+            int pagesize = 10
+            )
         {
-            var res = await _productRepository.SeacrhAsync(keyword, minPrice, maxPrice, Voucher);
-            return Ok(new { TotalItem = res.TotalCount, Data = res.products });
-        }
 
-        [HttpPost]
-        public async Task<ActionResult<Product>> AddAsync(Product product)
-        {
-            var res = await _productRepository.AddAsync(product);
-            return CreatedAtAction(nameof(GetByIdAsync), new { id = res.ProductId }, res);
-        }
+            var (products, totalCount) = await _productService.SeacrhAsync(keyword, categorySlug, brandSlug, minPrice, maxPrice, Voucher, page, pagesize);
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<Product>> UpdateProduct(int id, Product updatePro)
-        {
-            var product = await _productRepository.GetByIdAsync(id);
-            if (product == null)
+            var response = products.Select(p => new ProductResponse
             {
-                return NotFound();
-            }
+                ProductId = p.ProductId,
+                ProductName = p.ProductName,
+                Slug = p.Slug,
+                MainImageUrl = p.MainImageUrl,
+                BasePrice = p.BasePrice,
+                SellingPrice = (decimal)(p.DiscountPrice.HasValue ? p.DiscountPrice : p.BasePrice),
+                DiscountPercent = p.DiscountPrice.HasValue && p.BasePrice > 0
+                    ? (int)Math.Round((p.BasePrice - p.DiscountPrice.Value) / p.BasePrice * 100)
+                    : 0,
+                IsBestSeller = p.SoldQuantity >= 10
+            }).ToList();
 
-            product.ProductName = updatePro.ProductName;
-            product.ProductDetails = updatePro.ProductDetails;
-            product.Description = updatePro.Description;
-            product.Category = updatePro.Category;
-            product.Brand = updatePro.Brand;
-            product.BrandId = updatePro.BrandId;
-            product.BasePrice = updatePro.BasePrice;
-            product.CategoryId = updatePro.CategoryId;
-            product.VoucherConditions = updatePro.VoucherConditions;
-            var res = await _productRepository.UpdateAsync(product);
-            return Ok(res);
-        }
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAsync(int id)
-        {
-            var product = await _productRepository.GetByIdAsync(id);
-            if (product == null)
+            return Ok(new
             {
-                return NotFound();
-            }
-            await _productRepository.DeleteAsync(id);
-            return NoContent();
+                items = response,
+                totalCount = totalCount,
+                page,
+                pagesize,
+                totalPages = (int)Math.Ceiling((double)totalCount / pagesize)
+            });
+        }
+
+        [HttpGet("home")]
+        public async Task<IActionResult> GetHomeProducts()
+        {
+            var result = await _productService.GetProductsForHomePageAsync();
+            return Ok(new
+            {
+                Message = "Thành công",
+                Data = result
+            });
         }
     }
 }

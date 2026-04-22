@@ -1,4 +1,6 @@
-﻿using Mapster;
+﻿using System.Security.Claims;
+using Mapster;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request;
@@ -67,8 +69,33 @@ namespace MyOwnLearning.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+        [Authorize] // Bắt buộc phải có Token hợp lệ
+        [HttpPut("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            try
+            {
+                // 1. Lấy User ID từ Claim trong Token
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized(new { message = "Không xác định được người dùng." });
 
+                int userId = int.Parse(userIdClaim);
 
+                // 2. Kiểm tra mật khẩu mới
+                if (request.NewPassword.Length < 6)
+                    return BadRequest(new { message = "Mật khẩu mới quá ngắn." });
+
+                // 3. Gọi Service xử lý
+                var result = await _userService.ChangePasswordAsync(userId, request.OldPassword, request.NewPassword);
+
+                return Ok(new { message = "Đổi mật khẩu thành công." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }

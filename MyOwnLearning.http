@@ -4,39 +4,11 @@ GET {{URL}}/weatherforecast/
 Accept: application/json
 
 ###
-GET {{URL}}/api/product
+GET {{URL}}/api/product/home
 accept: application/json
-###
-GET {{URL}}/api/product/102
-accept: application/json
-###
-POST {{URL}}/api/product
-content-type: application/json
-{
-    "productName": "aaaaaaaaaaaa",
-    "brandId": 1,
-    "categoryId": 1,
-    "description": "bbbbbbbbbbbbbbbbb",
-    "basePrice": 23232323.00
-}
-###
-PUT {{URL}}/api/product/102
-content-type: application/json
-{
-    "productName": "11111123111111111",
-    "brandId": 1,
-    "categoryId": 1,
-    "description": "123",
-    "basePrice": 23232323.00
-}
 
 ###
-DELETE {{URL}}/api/product/101
-Accept: application/json
-
-###
-GET {{URL}}/api/product/searchAsync?keyword=100
-Accept: application/json
+GET {{URL}}/api/product/searchAsync?keyword=astrox&categorySlug=vot-cau-long&brandSlug=yonex
 
 ###
 POST {{URL}}/api/Auth/register
@@ -67,3 +39,4 @@ content-type: application/json
         "Customer"
     ]
 }
+    
