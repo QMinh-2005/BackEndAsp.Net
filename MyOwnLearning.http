@@ -22,7 +22,7 @@ POST {{URL}}/api/Auth/login
 content-type: application/json
 {
     "Email": "minh@123",
-    "Password": "123456"
+    "Password": "234567"
 }
 ###
 GET {{URL}}/api/User?keyword=inh
@@ -39,4 +39,6 @@ content-type: application/json
         "Customer"
     ]
 }
+
+
     

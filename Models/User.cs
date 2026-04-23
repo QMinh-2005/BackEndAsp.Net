@@ -21,6 +21,8 @@ public partial class User
 
     public byte[]? Salt { get; set; }
 
+    public DateTime? DateOfBirth { get; set; }
+
     public virtual Customer? Customer { get; set; }
 
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();

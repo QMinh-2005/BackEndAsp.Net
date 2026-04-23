@@ -1,6 +1,7 @@
 ﻿using Azure.Core;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using MyOwnLearning.DTO.Request;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 
@@ -13,6 +14,7 @@ namespace MyOwnLearning.Service
         Task<(List<User> users, int TotalCount)> Search(string keyword);
         Task<User> CreateUserByAdminAsync(User user, string password, IEnumerable<string> roles);
         Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword);
+        Task<bool> UpdateProfileAsync(int userId, ChangeInfoRequest request);
     }
 
     public class UserService : IUserService
@@ -104,6 +106,18 @@ namespace MyOwnLearning.Service
 
             await _userRepository.UpdateAsync(user);
             return true;
+        }
+        public async Task<bool> UpdateProfileAsync(int userId, ChangeInfoRequest request)
+        {
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return false;
+            user.FullName = request.FullName;
+            user.PhoneNumber = request.PhoneNumber;
+            user.DateOfBirth = request.DateOfBirth;
+            await _userRepository.UpdateAsync(user);
+            return true;
+
         }
     }
 }
