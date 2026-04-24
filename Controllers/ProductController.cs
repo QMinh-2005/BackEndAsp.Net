@@ -126,5 +126,32 @@ namespace MyOwnLearning.Controllers
                 return StatusCode(500, new { Message = "Thêm thất bại. Lỗi hệ thống: " + ex.Message });
             }
         }
+
+        [HttpPut("{idPro}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateProduct(int idPro, UpdateProductRequest request)
+        {
+            try
+            {
+                // Gọi Service để xử lý logic "Giữ nguyên nếu rỗng"
+                var updatedProduct = await _productService.UpdateProductAsync(idPro, request);
+
+                // Nếu Service trả về null nghĩa là ID không tồn tại
+                if (updatedProduct == null)
+                {
+                    return NotFound(new { Message = $"Không tìm thấy sản phẩm với ID = {idPro}" });
+                }
+
+                return Ok(new
+                {
+                    Message = "Cập nhật sản phẩm thành công!",
+                    ProductId = updatedProduct.ProductId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi cập nhật: " + ex.Message });
+            }
+        }
     }
 }
