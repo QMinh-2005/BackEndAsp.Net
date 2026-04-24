@@ -1,7 +1,7 @@
 ﻿using Azure.Core;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using MyOwnLearning.DTO.Request;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 

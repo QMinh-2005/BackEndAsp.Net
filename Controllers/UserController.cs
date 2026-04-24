@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request;
-using MyOwnLearning.DTO.Response;
+using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Models;
 using MyOwnLearning.Service;
 
@@ -25,7 +27,7 @@ namespace MyOwnLearning.Controllers
         {
             var (Users, TotalCount) = await _userService.Search(keyword);
             if (Users == null || TotalCount == 0) { return NotFound(new { Message = "Không tìm thấy người dùng nào." }); }
-            var userResponse = Users.Adapt<List<DTO.Response.UserResponse>>();
+            var userResponse = Users.Adapt<List<UserResponse>>();
             return Ok(new
             {
                 Total = TotalCount,

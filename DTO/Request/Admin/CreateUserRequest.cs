@@ -1,4 +1,4 @@
-﻿namespace MyOwnLearning.DTO.Request
+﻿namespace MyOwnLearning.DTO.Request.Admin
 {
     public class CreateUserRequest
     {

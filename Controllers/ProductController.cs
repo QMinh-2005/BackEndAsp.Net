@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Win32.SafeHandles;
 using MyOwnLearning.Data;
+using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Response;
+using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 using MyOwnLearning.Repositories;
@@ -69,6 +73,58 @@ namespace MyOwnLearning.Controllers
                 Message = "Thành công",
                 Data = result
             });
+        }
+
+        //Hàm tạo một sản phẩm => CÓ thể cho admin nhập tay trong hệ thống
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateProduct(CreateProductRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+                if (request.ProductDetailRequests == null || !request.ProductDetailRequests.Any())
+                {
+                    return BadRequest(new { message = "Sản phẩm phải có ít nhất một trường Detail" });
+                }
+                var createdProduct = await _productService.CreateProductAsync(request);
+                return Ok(new
+                {
+                    message = "Tạo sản phẩm thành công!",
+                    ProductId = createdProduct.ProductId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Không thể thêm sản phẩm. Lỗi hệ thống:" + ex.Message });
+            }
+        }
+
+        //Hàm tạo nhiều sản phẩm => có thể nhập từ file vào
+        [HttpPost("bulk")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateMultipleProducts(List<CreateProductRequest> requests)
+        {
+            try
+            {
+                if (requests == null || !requests.Any())
+                {
+                    return BadRequest(new { Message = "Danh sách sản phẩm trống!" });
+                }
+                var createdProducts = await _productService.CreateMultipleProductAsync(requests);
+                return Ok(new
+                {
+                    Message = $"Đã tạo thành công {createdProducts.Count} sản phẩm mới!",
+                    CreatedProductIds = createdProducts.Select(p => p.ProductId).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Thêm thất bại. Lỗi hệ thống: " + ex.Message });
+            }
         }
     }
 }

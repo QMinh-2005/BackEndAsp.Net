@@ -1,4 +1,4 @@
-﻿namespace MyOwnLearning.DTO.Response
+﻿namespace MyOwnLearning.DTO.Response.Admin
 {
     public class UserResponse
     {

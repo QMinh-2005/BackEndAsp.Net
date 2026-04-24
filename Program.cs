@@ -1,7 +1,6 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
-using MyOwnLearning.DTO.Response;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 using MyOwnLearning.Repositories;
@@ -10,6 +9,7 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using MyOwnLearning.DTO.Response.Admin;
 
 var config = TypeAdapterConfig<User, UserResponse>.NewConfig()
     .Map(dest => dest.Roles, src => src.Roles.Select(r => r.RoleName))
@@ -50,6 +50,17 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// Thêm vào trước builder.Build();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -61,6 +72,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowAll");
 app.UseAuthentication();
 
 app.UseAuthorization();

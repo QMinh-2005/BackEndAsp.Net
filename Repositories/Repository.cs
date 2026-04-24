@@ -13,7 +13,7 @@ namespace MyOwnLearning.Repositories
         public Repository(WebBadmintonContext context)
         {
             _context = context;
-            _dbset = context.Set<T>(); 
+            _dbset = context.Set<T>();
         }
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
@@ -44,6 +44,11 @@ namespace MyOwnLearning.Repositories
                 _dbset.Remove(entity);
                 await _context.SaveChangesAsync();
             }
+        }
+        public virtual async Task AddRangeAsync(IEnumerable<T> entities)
+        {
+            await _dbset.AddRangeAsync(entities);
+            await _context.SaveChangesAsync();
         }
 
 

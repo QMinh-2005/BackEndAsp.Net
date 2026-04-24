@@ -153,7 +153,8 @@ public partial class WebBadmintonContext : DbContext
 
             entity.HasOne(d => d.Customer).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.CustomerId)
-                .HasConstraintName("FK__Orders__Customer__73BA3083");
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Orders_Customers");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>
@@ -228,11 +229,13 @@ public partial class WebBadmintonContext : DbContext
 
             entity.HasOne(d => d.Brand).WithMany(p => p.Products)
                 .HasForeignKey(d => d.BrandId)
-                .HasConstraintName("FK__Products__BrandI__6754599E");
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Products_Brands");
 
             entity.HasOne(d => d.Category).WithMany(p => p.Products)
                 .HasForeignKey(d => d.CategoryId)
-                .HasConstraintName("FK__Products__Catego__68487DD7");
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Products_Categories");
         });
 
         modelBuilder.Entity<ProductDetail>(entity =>
@@ -253,7 +256,6 @@ public partial class WebBadmintonContext : DbContext
 
             entity.HasOne(d => d.Product).WithMany(p => p.ProductDetails)
                 .HasForeignKey(d => d.ProductId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ProductDetail_Product");
         });
 

@@ -1,4 +1,4 @@
-﻿namespace MyOwnLearning.DTO.Request
+﻿namespace MyOwnLearning.DTO.Request.Customer
 {
     public class ChangeInfoRequest
     {

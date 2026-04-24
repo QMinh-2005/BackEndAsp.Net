@@ -32,8 +32,8 @@ content-type: application/json
 POST {{URL}}/api/User
 content-type: application/json
 {
-    "Email" : "quanminh", 
-    "Password" : "123466",
+    "Email" : "anhminh", 
+    "Password" : "123456",
     "Roles" : [
         "Stringer",
         "Customer"

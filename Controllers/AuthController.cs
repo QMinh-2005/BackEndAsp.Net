@@ -3,7 +3,7 @@ using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-using MyOwnLearning.DTO.Request;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.Models;
 using MyOwnLearning.Service;
 
@@ -46,7 +46,7 @@ namespace MyOwnLearning.Controllers
             }
         }
         [HttpPost("login")]
-        public async Task<IActionResult> Login(DTO.Request.LoginRequest request)
+        public async Task<IActionResult> Login(DTO.Request.Customer.LoginRequest request)
         {
 
             var user = await _userService.Authenticate(request.Email, request.Password);
