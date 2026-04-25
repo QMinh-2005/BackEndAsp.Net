@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Mapster;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Models;
@@ -26,17 +27,19 @@ namespace MyOwnLearning.Controllers
             });
         }
         [HttpPost]
-        public async Task<IActionResult> CreateCategory(string categoryName)
+        public async Task<IActionResult> CreateCategory([FromBody] string categoryName)
         {
-            var res = await _categoryService.CreateCategoryAsync(categoryName);
+            var newCategory = await _categoryService.CreateCategoryAsync(categoryName);
+            var res = newCategory.Adapt<CategoryResponse>();
             if (res == null)
             {
                 return BadRequest(new { Message = "Thông tin danh mục không hợp lệ" });
             }
+
             return Ok(new
             {
                 Message = "Tạo danh mục thành công",
-                CategoryId = res.CategoryId
+                data = res
             });
         }
     }

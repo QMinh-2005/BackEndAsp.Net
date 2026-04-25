@@ -8,14 +8,17 @@ namespace MyOwnLearning.Service
     public interface ICategotyService
     {
         Task<(List<CategoryResponse>, int TotalCount)> GetAllCategoryAsync();
-        Task<Category> CreateCategoryAsync(string categoryName);
+        Task<Category?> CreateCategoryAsync(string categoryName);
+
     }
     public class CategoryService : ICategotyService
     {
         private readonly ICategoryRepository _categoryRepository;
-        public CategoryService(ICategoryRepository categoryRepository)
+        private readonly IProductService _productService;
+        public CategoryService(ICategoryRepository categoryRepository, IProductService productService)
         {
             _categoryRepository = categoryRepository;
+            _productService = productService;
         }
         public async Task<(List<CategoryResponse>, int TotalCount)> GetAllCategoryAsync()
         {
@@ -30,6 +33,7 @@ namespace MyOwnLearning.Service
             {
                 var newCate = new Category();
                 newCate.CategoryName = categoryName;
+                newCate.Slug = _productService.GenerateSlug("", categoryName);
                 await _categoryRepository.AddAsync(newCate);
                 return newCate;
             }

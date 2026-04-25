@@ -1,7 +1,9 @@
 ﻿using Azure.Core;
+using Mapster;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 
@@ -11,10 +13,11 @@ namespace MyOwnLearning.Service
     {
         Task<User> Create(User user, string password);
         Task<User?> Authenticate(string email, string password);
-        Task<(List<User> users, int TotalCount)> Search(string keyword);
+        Task<(List<User> users, int TotalCount)> SearchByNameAsync(string keyword);
         Task<User> CreateUserByAdminAsync(User user, string password, IEnumerable<string> roles);
         Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword);
         Task<bool> UpdateProfileAsync(int userId, ChangeInfoRequest request);
+        Task<InfoResponse?> GetInfoAsync(int id);
     }
 
     public class UserService : IUserService
@@ -64,9 +67,9 @@ namespace MyOwnLearning.Service
             return user;
         }
 
-        public async Task<(List<User> users, int TotalCount)> Search(string keyword)
+        public async Task<(List<User> users, int TotalCount)> SearchByNameAsync(string keyword)
         {
-            return await _userRepository.SearchAsync(keyword);
+            return await _userRepository.SearchByNameAsync(keyword);
         }
         public async Task<User> CreateUserByAdminAsync(User user, string password, IEnumerable<string> roles)
         {
@@ -112,12 +115,31 @@ namespace MyOwnLearning.Service
 
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
-            user.FullName = request.FullName;
-            user.PhoneNumber = request.PhoneNumber;
-            user.DateOfBirth = request.DateOfBirth;
+            if (!string.IsNullOrWhiteSpace(request.FullName))
+            {
+                user.FullName = request.FullName;
+            }
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+            {
+                user.PhoneNumber = request.PhoneNumber;
+            }
+            if (request.DateOfBirth.HasValue)
+            {
+                user.DateOfBirth = request.DateOfBirth;
+            }
             await _userRepository.UpdateAsync(user);
             return true;
 
+        }
+        public async Task<InfoResponse?> GetInfoAsync(int id)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null)
+            {
+                return null;
+            }
+            var res = user.Adapt<InfoResponse?>();
+            return res;
         }
     }
 }

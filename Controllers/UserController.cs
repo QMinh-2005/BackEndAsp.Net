@@ -22,10 +22,12 @@ namespace MyOwnLearning.Controllers
         {
             _userService = userService;
         }
+
+        [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> GetAll(string keyword)
+        public async Task<IActionResult> GetAllByName(string keyword)
         {
-            var (Users, TotalCount) = await _userService.Search(keyword);
+            var (Users, TotalCount) = await _userService.SearchByNameAsync(keyword);
             if (Users == null || TotalCount == 0) { return NotFound(new { Message = "Không tìm thấy người dùng nào." }); }
             var userResponse = Users.Adapt<List<UserResponse>>();
             return Ok(new
@@ -34,6 +36,7 @@ namespace MyOwnLearning.Controllers
                 Data = userResponse
             });
         }
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateAccount(CreateUserRequest request)
         {
@@ -121,6 +124,26 @@ namespace MyOwnLearning.Controllers
                 }
 
                 return NotFound(new { message = "Không tìm thấy người dùng." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("user-info")]
+        public async Task<IActionResult> GetInfo()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userIdClaim))
+                    return Unauthorized(new { message = "Không xác định được người dùng." });
+                int userId = int.Parse(userIdClaim);
+                var res = await _userService.GetInfoAsync(userId);
+                if (res == null) return NotFound(new { message = $"Không tìm thấy {userId}" });
+                return Ok(res);
             }
             catch (Exception ex)
             {

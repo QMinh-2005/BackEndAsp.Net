@@ -25,7 +25,6 @@ namespace MyOwnLearning.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(CustomerRegisterRequest request)
         {
-
             if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
             {
                 return BadRequest(new { message = "Username and Password are required" });
@@ -67,7 +66,6 @@ namespace MyOwnLearning.Controllers
                 message = "Login successful",
                 token = token
             });
-
         }
     }
 }

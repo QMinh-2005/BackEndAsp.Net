@@ -15,14 +15,18 @@ namespace MyOwnLearning.Repositories
                 .Include(u => u.Roles) //Lấy cái roles. Nếu chỉ lấy nguyên tên thì bỏ đi cũng được, phục vụ cho việc Token lấy roles
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
-        public async Task<(List<User> Users, int TotalCount)> SearchAsync(string keyword)
+        public async Task<(List<User> Users, int TotalCount)> SearchByNameAsync(string keyword)
         {
             var query = _dbset.AsQueryable();
             query = query.Include(u => u.Roles);
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                keyword = keyword.ToLower();
-                query = query.Where(u => u.FullName.Contains(keyword));
+                // 1. Loại bỏ các khoảng trắng thừa nếu có
+                string cleanedKeyword = keyword.Replace(" ", "");
+
+                string pattern = "%" + string.Join("%", cleanedKeyword.ToCharArray()) + "%";
+
+                query = query.Where(u => EF.Functions.Like(u.FullName, pattern));
             }
             var TotalCount = await query.CountAsync();
             var users = await query.ToListAsync();

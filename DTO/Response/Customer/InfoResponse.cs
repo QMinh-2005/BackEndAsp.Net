@@ -1,7 +1,8 @@
-﻿namespace MyOwnLearning.DTO.Request.Customer
+﻿namespace MyOwnLearning.DTO.Response.Customer
 {
-    public class ChangeInfoRequest
+    public class InfoResponse
     {
+        public string? Email { get; set; }
         public string? FullName { get; set; }
 
         public string? PhoneNumber { get; set; }
