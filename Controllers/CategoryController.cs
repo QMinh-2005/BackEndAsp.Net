@@ -27,6 +27,7 @@ namespace MyOwnLearning.Controllers
             });
         }
         [HttpPost]
+        [Permission("WAREHOUSE", "CREATE")]
         public async Task<IActionResult> CreateCategory([FromBody] string categoryName)
         {
             var newCategory = await _categoryService.CreateCategoryAsync(categoryName);
@@ -41,6 +42,32 @@ namespace MyOwnLearning.Controllers
                 Message = "Tạo danh mục thành công",
                 data = res
             });
+        }
+        [HttpPut("{categoryId}")]
+        [Permission("WAREHOUSE", "UPDATE")]
+        public async Task<IActionResult> UpdateCategory(int categoryId, [FromBody] string newCategoryName)
+        {
+            var updatedCategory = await _categoryService.UpdateCategoryAsync(categoryId, newCategoryName);
+            if (updatedCategory == null)
+            {
+                return BadRequest(new { Message = "Thông tin danh mục không hợp lệ hoặc danh mục không tồn tại" });
+            }
+            return Ok(new
+            {
+                Message = "Cập nhật danh mục thành công",
+                data = updatedCategory
+            });
+        }
+        [HttpDelete("{categoryId}")]
+        [Permission("WAREHOUSE", "DELETE")]
+        public async Task<IActionResult> DeleteCategory(int categoryId)
+        {
+            var isDeleted = await _categoryService.DeleteCategoryAsync(categoryId);
+            if (!isDeleted)
+            {
+                return NotFound(new { Message = "Danh mục không tồn tại hoặc không thể xóa do có sản phẩm liên quan" });
+            }
+            return Ok(new { Message = "Xóa danh mục thành công" });
         }
     }
 }

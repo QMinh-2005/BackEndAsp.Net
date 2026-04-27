@@ -10,6 +10,8 @@ namespace MyOwnLearning.Service
     {
         Task<(List<BrandResponse>, int TotalCount)> GetAllBrands();
         Task<Brand?> CreateBrandAsync(string brandName);
+        Task<bool> DeleteBrandAsync(int brandId);
+        Task<BrandResponse?> UpdateBrandAsync(int brandId, string newBrandName);
     }
     public class BrandService : IBrandService
     {
@@ -38,6 +40,28 @@ namespace MyOwnLearning.Service
                 return newBrand;
             }
             else return null;
+        }
+        public async Task<BrandResponse?> UpdateBrandAsync(int brandId, string newBrandName)
+        {
+            var brand = await _brandRepository.GetByIdAsync(brandId);
+            if (brand != null && !string.IsNullOrWhiteSpace(newBrandName))
+            {
+                brand.BrandName = newBrandName;
+                brand.Slug = _productService.GenerateSlug("", newBrandName).ToLower();
+                await _brandRepository.UpdateAsync(brand);
+                return brand.Adapt<BrandResponse>();
+            }
+            return null;
+        }
+        public async Task<bool> DeleteBrandAsync(int brandId)
+        {
+            var brand = await _brandRepository.GetByIdAsync(brandId);
+            if (brand != null)
+            {
+                await _brandRepository.DeleteAsync(brandId);
+                return true;
+            }
+            return false;
         }
     }
 }

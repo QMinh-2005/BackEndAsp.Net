@@ -12,11 +12,12 @@ namespace MyOwnLearning.Service
     {
         string HashPassword(string password, out byte[] salt);
         bool IsValidPassword(string password, byte[] salt, string hashedParam);
-        string GenerateToken(string secretKey, int minuteExpireTime, string userId, string email, IEnumerable<string> roles);
+        string GenerateToken(string secretKey, int minuteExpireTime, string userId, string email, IEnumerable<string> roles, IEnumerable<string> permissions);
     }
 
     public class AuthService : IAuthService
     {
+       
         public string HashPassword(string password, out byte[] salt)
         {
             salt = new byte[128 / 8];
@@ -43,7 +44,7 @@ namespace MyOwnLearning.Service
 
             return hashed.Equals(hashedParam);
         }
-        public string GenerateToken(string secretKey, int minuteExpireTime, string userId, string email, IEnumerable<string> roles)
+        public string GenerateToken(string secretKey, int minuteExpireTime, string userId, string email, IEnumerable<string> roles, IEnumerable<string> permissions)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
@@ -53,6 +54,15 @@ namespace MyOwnLearning.Service
                 new Claim(ClaimTypes.Email, email),
                 new Claim(ClaimTypes.NameIdentifier, userId)
             };
+
+
+            if (permissions != null && permissions.Any())
+            {
+                foreach (var perm in permissions)
+                {
+                    claims.Add(new Claim("permission", perm));
+                }
+            }
             // 2. Add từng role vào danh sách Claims
             if (roles != null && roles.Any())
             {
@@ -61,6 +71,7 @@ namespace MyOwnLearning.Service
                     claims.Add(new Claim(ClaimTypes.Role, role));
                 }
             }
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),

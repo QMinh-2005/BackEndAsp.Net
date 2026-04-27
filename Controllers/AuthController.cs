@@ -15,12 +15,14 @@ namespace MyOwnLearning.Controllers
     {
         private readonly IUserService _userService;
         private readonly IAuthService _authService;
+        private readonly IPermissionService _permissionService;
         private const string SecretKey = "YourSecretKeyForAuthenticationShouldBeLongEnough";
         private const int TokenExpirationMinutes = 480;
-        public AuthController(IUserService userService, IAuthService authService)
+        public AuthController(IUserService userService, IAuthService authService, IPermissionService permissionService)
         {
             _userService = userService;
             _authService = authService;
+            _permissionService = permissionService;
         }
         [HttpPost("register")]
         public async Task<IActionResult> Register(CustomerRegisterRequest request)
@@ -47,19 +49,20 @@ namespace MyOwnLearning.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(DTO.Request.Customer.LoginRequest request)
         {
-
             var user = await _userService.Authenticate(request.Email, request.Password);
             if (user == null)
             {
                 return BadRequest(new { message = "Invalid username or password" });
             }
             var roles = user.Roles?.Select(r => r.RoleName).ToList() ?? new List<string>();
+            var permissions = await _permissionService.GetUserPermissionAsync(user.UserId);
             var token = _authService.GenerateToken(
                 secretKey: SecretKey, // Ít nhất 32 ký tự
                 minuteExpireTime: TokenExpirationMinutes, // Sống trong 60 phút
                 userId: user.UserId.ToString(),
                 email: user.Email,
-                roles: roles
+                roles: roles,
+                permissions: permissions
             );
             return Ok(new
             {
