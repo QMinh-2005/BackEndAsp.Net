@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -11,6 +12,7 @@ namespace MyOwnLearning.Service
 {
     public interface IUserService
     {
+        Task<(List<UserResponse>, int TotalCount)> GetAllUserAsync(int page, int pageSize);
         Task<User> Create(User user, string password);
         Task<User?> Authenticate(string email, string password);
         Task<(List<User> users, int TotalCount)> SearchByNameAsync(string keyword);
@@ -140,6 +142,12 @@ namespace MyOwnLearning.Service
             }
             var res = user.Adapt<InfoResponse?>();
             return res;
+        }
+        public async Task<(List<UserResponse>, int TotalCount)> GetAllUserAsync(int page, int pageSize)
+        {
+            var (users, totalCount) = await _userRepository.GetAllUserAsync(page, pageSize);
+            var userResponses = users.Adapt<List<UserResponse>>();
+            return (userResponses, totalCount);
         }
     }
 }

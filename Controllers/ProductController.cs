@@ -38,7 +38,7 @@ namespace MyOwnLearning.Controllers
             )
         {
 
-            var (products, totalCount) = await _productService.SeacrhAsync(keyword, categorySlug, brandSlug, minPrice, maxPrice, Voucher, page, pagesize);
+            var (products, totalCount) = await _productService.SearchAsync(keyword, categorySlug, brandSlug, minPrice, maxPrice, Voucher, page, pagesize);
 
             var response = products.Select(p => new ProductResponse
             {

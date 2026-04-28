@@ -9,6 +9,14 @@ namespace MyOwnLearning.Repositories
     public class UserRepository : Repository<User>, IUserRepository
     {
         public UserRepository(WebBadmintonContext context) : base(context) { }
+        public async Task<(List<User> Users, int TotalCount)> GetAllUserAsync(int page, int pageSize)
+        {
+            var query = _dbset.AsQueryable();
+            query = query.Include(u => u.Roles);
+            var TotalCount = await query.CountAsync();
+            var users = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            return (users, TotalCount);
+        }
         public async Task<User?> GetByEmailAsync(string email)
         {
             return await _dbset

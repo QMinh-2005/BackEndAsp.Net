@@ -22,10 +22,26 @@ namespace MyOwnLearning.Controllers
         {
             _userService = userService;
         }
-
         [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> GetAllByName(string keyword)
+        public async Task<IActionResult> GetAll(int page = 1, int pageSize = 10)
+        {
+            var (Users, TotalCount) = await _userService.GetAllUserAsync(page, pageSize);
+            if (Users == null || TotalCount == 0) { return NotFound(new { Message = "Không tìm thấy người dùng nào." }); }
+            var userResponse = Users.Adapt<List<UserResponse>>();
+            return Ok(new
+            {
+                Total = TotalCount,
+                Data = userResponse,
+                Page = page,
+                PageSize = pageSize
+            });
+        }
+
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchByName(string keyword)
         {
             var (Users, TotalCount) = await _userService.SearchByNameAsync(keyword);
             if (Users == null || TotalCount == 0) { return NotFound(new { Message = "Không tìm thấy người dùng nào." }); }
@@ -150,5 +166,6 @@ namespace MyOwnLearning.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
     }
 }

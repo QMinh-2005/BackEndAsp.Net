@@ -10,7 +10,7 @@ namespace MyOwnLearning.Service
     public interface IProductService
     {
         Task<List<ProductHomeResponse>> GetProductsForHomePageAsync();
-        Task<(List<Product> products, int TotalCount)> SeacrhAsync(string? key, string? categorySlug, string? brandSlug, decimal? minPrice, decimal? maxPrice, bool? Voucher, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> SearchAsync(string? key, string? categorySlug, string? brandSlug, decimal? minPrice, decimal? maxPrice, bool? Voucher, int page, int pageSize);
         string GenerateSlug(string categorySlug, string title);
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests);
@@ -91,7 +91,7 @@ namespace MyOwnLearning.Service
             }).ToList();
             return response;
         }
-        public async Task<(List<Product> products, int TotalCount)> SeacrhAsync(string? keyword, string? categorySlug, string? brandSlug, decimal? minPrice, decimal? maxPrice, bool? Voucher, int page, int pageSize)
+        public async Task<(List<Product> products, int TotalCount)> SearchAsync(string? keyword, string? categorySlug, string? brandSlug, decimal? minPrice, decimal? maxPrice, bool? Voucher, int page, int pageSize)
         {
             return await _productRepository.SearchAsync(keyword, categorySlug, brandSlug, minPrice, maxPrice, Voucher, page, pageSize);
         }

@@ -22,8 +22,6 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<Category> Categories { get; set; }
 
-    public virtual DbSet<Customer> Customers { get; set; }
-
     public virtual DbSet<Function> Functions { get; set; }
 
     public virtual DbSet<Module> Modules { get; set; }
@@ -79,18 +77,19 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.AddedDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
-            entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
             entity.Property(e => e.DetailId).HasColumnName("DetailID");
             entity.Property(e => e.Quantity).HasDefaultValue(1);
-
-            entity.HasOne(d => d.Customer).WithMany(p => p.Carts)
-                .HasForeignKey(d => d.CustomerId)
-                .HasConstraintName("FK__Cart__CustomerID__01142BA1");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
 
             entity.HasOne(d => d.Detail).WithMany(p => p.Carts)
                 .HasForeignKey(d => d.DetailId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_Cart_ProductDetails");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Carts)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Cart_Users");
         });
 
         modelBuilder.Entity<Category>(entity =>
@@ -102,23 +101,6 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.Slug)
                 .HasMaxLength(100)
                 .IsUnicode(false);
-        });
-
-        modelBuilder.Entity<Customer>(entity =>
-        {
-            entity.HasKey(e => e.CustomerId).HasName("PK__Customer__A4AE64B827832FBD");
-
-            entity.HasIndex(e => e.UserId, "UQ__Customer__1788CCADD2C60A62").IsUnique();
-
-            entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
-            entity.Property(e => e.PlayStyle).HasMaxLength(50);
-            entity.Property(e => e.SkillLevel).HasMaxLength(50);
-            entity.Property(e => e.UserId).HasColumnName("UserID");
-
-            entity.HasOne(d => d.User).WithOne(p => p.Customer)
-                .HasForeignKey<Customer>(d => d.UserId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK__Customers__UserI__6477ECF3");
         });
 
         modelBuilder.Entity<Function>(entity =>
@@ -142,7 +124,6 @@ public partial class WebBadmintonContext : DbContext
             entity.HasKey(e => e.OrderId).HasName("PK__Orders__C3905BAFA6FD3200");
 
             entity.Property(e => e.OrderId).HasColumnName("OrderID");
-            entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
             entity.Property(e => e.OrderDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -150,11 +131,12 @@ public partial class WebBadmintonContext : DbContext
                 .HasMaxLength(50)
                 .HasDefaultValue("Chờ xử lý");
             entity.Property(e => e.TotalAmount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
 
-            entity.HasOne(d => d.Customer).WithMany(p => p.Orders)
-                .HasForeignKey(d => d.CustomerId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_Orders_Customers");
+            entity.HasOne(d => d.User).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Orders_Users");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>

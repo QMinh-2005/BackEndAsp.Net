@@ -23,9 +23,11 @@ public partial class User
 
     public DateTime? DateOfBirth { get; set; }
 
-    public virtual Customer? Customer { get; set; }
+    public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
 
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
+
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 
     public virtual ICollection<Role> Roles { get; set; } = new List<Role>();
 }
