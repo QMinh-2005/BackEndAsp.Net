@@ -8,6 +8,12 @@ namespace MyOwnLearning.Service
     {
         Task<CartResponse?> GetCartByUserIdAsync(int userId);
         Task<CartResponse> AddToCartAsync(int userId, int detailId, int quantity);
+
+        // Tìm trực tiếp item bằng CartItemId (Nhanh hơn tìm theo DetailId)
+        Task<CartResponse> UpdateCartAsync(int userId, int cartItemId, int quantity);
+
+        // 2. Hàm Xóa hẳn sản phẩm (Dùng cho nút Thùng rác)
+        Task<CartResponse> DeleteCartAsync(int userId, int cartItemId);
     }
     public class CartService : ICartService
     {
@@ -30,6 +36,7 @@ namespace MyOwnLearning.Service
             {
                 Items = cart.CartItems.Select(ci => new CartItemResponse
                 {
+                    CartItemId = ci.CartItemId,
                     DetailId = ci.DetailId,// giữ lại để khi click + - thì FE sẽ gửi DetailId để biết cập nhật số lượng cho item nào
                     ProductId = ci.Detail?.ProductId ?? 0,
                     ProductName = ci.Detail?.Product?.ProductName ?? string.Empty,
@@ -44,8 +51,12 @@ namespace MyOwnLearning.Service
         }
         public async Task<CartResponse> AddToCartAsync(int userId, int detailId, int quantity)
         {
+            // Hàm AddToCart chỉ chấp nhận thêm số lượng > 0.
+            if (quantity <= 0) throw new Exception("Số lượng thêm vào phải lớn hơn 0");
+
+            //Kiểm tra tồn tại của ProductDetail
             var detail = await _productDetailRepository.GetByIdAsync(detailId);
-            if (detail == null) throw new Exception("Product detail not found");
+            if (detail == null) throw new KeyNotFoundException("Không tìm thấy thông tin sản phẩm");
             var cart = await _cartRepository.GetCartByUserIdAsync(userId);
             if (cart == null)
             {
@@ -61,35 +72,61 @@ namespace MyOwnLearning.Service
             var finalQuantity = currentQuantityInCart + quantity;
             if (finalQuantity > detail.StockQuantity)
             {
-                throw new Exception($"Cannot add {quantity} items to cart. Only {detail.StockQuantity - currentQuantityInCart} items left in stock.");
+                throw new InvalidOperationException($"Không đủ hàng trong kho. Bạn đang có {currentQuantityInCart} trong giỏ hàng, và chỉ có {detail.StockQuantity} sản phẩm này trong kho.");
             }
-            if (finalQuantity <= 0)
+
+            if (existingItem != null)
             {
-                if (existingItem != null)
-                {
-                    await _cartItemRepository.DeleteAsync(existingItem.CartItemId);
-                }
+                existingItem.Quantity += quantity;
+                existingItem.AddedDate = DateTime.UtcNow;
             }
             else
             {
-                if (existingItem != null)
+                cart.CartItems.Add(new CartItem
                 {
-                    existingItem.Quantity += quantity;
-                    existingItem.AddedDate = DateTime.UtcNow;
-                }
-                else
-                {
-                    cart.CartItems.Add(new CartItem
-                    {
-                        CartId = cart.CartId,
-                        DetailId = detailId,
-                        Quantity = quantity,
-                        AddedDate = DateTime.UtcNow
-                    });
-                }
-                await _cartRepository.UpdateAsync(cart);
+                    CartId = cart.CartId,
+                    DetailId = detailId,
+                    Quantity = quantity,
+                    AddedDate = DateTime.UtcNow
+                });
+            }
+            await _cartRepository.UpdateAsync(cart);
+            return await GetCartByUserIdAsync(userId);
+        }
+
+        public async Task<CartResponse> UpdateCartAsync(int userId, int cartItemId, int quantity)
+        {
+            var cartItem = await _cartItemRepository.GetByIdAsync(cartItemId);
+            if (cartItem == null)
+            {
+                throw new KeyNotFoundException("Sản phẩm không tồn tại trong giỏ hàng");
+            }
+            var detail = await _productDetailRepository.GetByIdAsync(cartItem.DetailId);
+            if (quantity > detail.StockQuantity)
+            {
+                throw new InvalidOperationException($"Không đủ hàng trong kho. Tối đa bạn có thể đặt là {detail.StockQuantity} sản phẩm này.");
             }
 
+            if (quantity <= 0)
+            {
+                await _cartItemRepository.DeleteAsync(cartItemId);
+            }
+            else
+            {
+                cartItem.Quantity = quantity;
+                cartItem.AddedDate = DateTime.UtcNow;
+                await _cartItemRepository.UpdateAsync(cartItem);
+            }
+            return await GetCartByUserIdAsync(userId);
+        }
+        public async Task<CartResponse> DeleteCartAsync(int userId, int cartItemId)
+        {
+            var cartItem = await _cartItemRepository.GetByIdAsync(cartItemId);
+            if (cartItem == null)
+            {
+                throw new KeyNotFoundException("Sản phẩm không tồn tại trong giỏ hàng");
+            }
+            await _cartItemRepository.DeleteAsync(cartItemId);
             return await GetCartByUserIdAsync(userId);
         }
     }

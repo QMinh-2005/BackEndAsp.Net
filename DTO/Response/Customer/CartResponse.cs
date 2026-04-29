@@ -2,12 +2,14 @@
 {
     public class CartResponse
     {
+
         public List<CartItemResponse> Items { get; set; } = new List<CartItemResponse>();
         public decimal TotalAmount => Items.Sum(i => i.SubTotal);
         public int TotalQuantity => Items.Sum(i => i.Quantity);
     }
     public class CartItemResponse
     {
+        public int CartItemId { get; set; }
         public int DetailId { get; set; }
         public int ProductId { get; set; }
         public string ProductName { get; set; }
