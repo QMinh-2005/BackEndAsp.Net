@@ -20,6 +20,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<Cart> Carts { get; set; }
 
+    public virtual DbSet<CartItem> CartItems { get; set; }
+
     public virtual DbSet<Category> Categories { get; set; }
 
     public virtual DbSet<Function> Functions { get; set; }
@@ -69,27 +71,40 @@ public partial class WebBadmintonContext : DbContext
 
         modelBuilder.Entity<Cart>(entity =>
         {
-            entity.HasKey(e => e.CartId).HasName("PK__Cart__51BCD79757B08F92");
+            entity.HasKey(e => e.CartId).HasName("PK__Carts__51BCD7971AE47B99");
 
-            entity.ToTable("Cart");
+            entity.HasIndex(e => e.UserId, "UQ__Carts__1788CCAD17392792").IsUnique();
 
             entity.Property(e => e.CartId).HasColumnName("CartID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.User).WithOne(p => p.Cart)
+                .HasForeignKey<Cart>(d => d.UserId)
+                .HasConstraintName("FK_Carts_Users");
+        });
+
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.HasKey(e => e.CartItemId).HasName("PK__CartItem__488B0B2A099D0A59");
+
+            entity.Property(e => e.CartItemId).HasColumnName("CartItemID");
             entity.Property(e => e.AddedDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.CartId).HasColumnName("CartID");
             entity.Property(e => e.DetailId).HasColumnName("DetailID");
             entity.Property(e => e.Quantity).HasDefaultValue(1);
-            entity.Property(e => e.UserId).HasColumnName("UserID");
 
-            entity.HasOne(d => d.Detail).WithMany(p => p.Carts)
+            entity.HasOne(d => d.Cart).WithMany(p => p.CartItems)
+                .HasForeignKey(d => d.CartId)
+                .HasConstraintName("FK_CartItems_Carts");
+
+            entity.HasOne(d => d.Detail).WithMany(p => p.CartItems)
                 .HasForeignKey(d => d.DetailId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_Cart_ProductDetails");
-
-            entity.HasOne(d => d.User).WithMany(p => p.Carts)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Cart_Users");
+                .HasConstraintName("FK_CartItems_ProductDetails");
         });
 
         modelBuilder.Entity<Category>(entity =>
@@ -202,7 +217,6 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.BrandId).HasColumnName("BrandID");
             entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
             entity.Property(e => e.DiscountPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.MainImageUrl).HasMaxLength(500);
             entity.Property(e => e.ProductName).HasMaxLength(250);
             entity.Property(e => e.Slug)
                 .HasMaxLength(255)
