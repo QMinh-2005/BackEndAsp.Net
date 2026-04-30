@@ -1,4 +1,5 @@
-﻿using MyOwnLearning.Models;
+﻿using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.Models;
 
 namespace MyOwnLearning.Interfaces
 {
@@ -6,5 +7,8 @@ namespace MyOwnLearning.Interfaces
     {
 
         Task<List<Order>> GetOrdersByUserIdAsync(int userId);
+        Task<List<Order>> GetAllOrdersWithDetailsAsync();
+        Task<Order> CreateOrderAsync(int userId, CreateOrderRequest request);
+        Task<Order> UpdateStatusOrderAsync(int orderId, string newStatus);
     }
 }

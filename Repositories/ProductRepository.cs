@@ -80,5 +80,18 @@ namespace MyOwnLearning.Repositories
                          .SelectMany(g => g.Take(6))
                          .ToList();
         }
+        public async Task<(List<Product> products, int TotalCount)> GetProductsByCategorySlugAsync(string categorySlug, int page, int pageSize)
+        {
+            var query = _dbset.Include(p => p.Category)
+                              .Where(p => p.Category != null && p.Category.Slug == categorySlug)
+                              .AsQueryable();
+            var products = await query
+                .OrderByDescending(p => p.ProductId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            var totalCount = await query.CountAsync();
+            return (products, totalCount);
+        }
     }
 }

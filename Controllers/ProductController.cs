@@ -153,5 +153,21 @@ namespace MyOwnLearning.Controllers
                 return StatusCode(500, new { Message = "Lỗi hệ thống khi cập nhật: " + ex.Message });
             }
         }
+        [HttpGet("product_of_category/{categorySlug}")]
+        public async Task<IActionResult> GetProductsByCategorySlug(
+            string categorySlug,
+            int page = 1,
+            int pagesize = 10)
+        {
+            var (products, totalCount) = await _productService.GetProductByCategorySlugAsync(categorySlug, page, pagesize);
+            return Ok(new
+            {
+                items = products,
+                totalCount = totalCount,
+                page,
+                pagesize,
+                totalPages = (int)Math.Ceiling((double)totalCount / pagesize)
+            });
+        }
     }
 }

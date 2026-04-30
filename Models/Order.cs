@@ -15,6 +15,16 @@ public partial class Order
 
     public int UserId { get; set; }
 
+    public string ShippingAddress { get; set; } = null!;
+
+    public string PhoneNumber { get; set; } = null!;
+
+    public string? Note { get; set; }
+
+    public string? ReceiverName { get; set; }
+
+    public decimal? ShippingFee { get; set; }
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
 
     public virtual Payment? Payment { get; set; }

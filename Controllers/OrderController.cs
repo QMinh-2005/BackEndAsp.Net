@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.Service;
 
 namespace MyOwnLearning.Controllers
@@ -27,20 +28,29 @@ namespace MyOwnLearning.Controllers
 
             return Ok(orders);
         }
-        //[HttpGet("{orderId}")]
-        //[Permission("ORDER", "VIEW")]
-        //public async Task<IActionResult> GetOrderById(int orderId)
-        //{
-        //    //var order = await _orderService.GetOrderByIdAsync(orderId);
-        //    //if (order == null) { return NotFound(new { Message = "Không tìm thấy đơn hàng." }); }
-        //    //return Ok(order);
-        //}
-        //[HttpPost]
-        //[Permission("ORDER", "CREATE")]
-        //public async Task<IActionResult> CreateOrder()
-        //{
-        //    //var newOrder = await _orderService.CreateOrderAsync();
-        //    //return Ok(newOrder);
-        //}
+        [HttpGet("all-orders")]
+        public async Task<IActionResult> GetAllOrders()
+        {
+            var orders = await _orderService.GetAllOrdersAsync();
+            return Ok(orders);
+        }
+        [HttpPost]
+        public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                return Unauthorized(new { Message = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn." });
+
+            try
+            {
+                var order = await _orderService.CreateOrderAsync(userId, request);
+                return Ok(order);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
     }
 }

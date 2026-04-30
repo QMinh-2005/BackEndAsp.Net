@@ -15,6 +15,7 @@ namespace MyOwnLearning.Service
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests);
         Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
+        Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize);
     }
     public class ProductService : IProductService
     {
@@ -309,6 +310,24 @@ namespace MyOwnLearning.Service
             }
             await _productRepository.UpdateAsync(pro);
             return pro;
+        }
+        public async Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize)
+        {
+            var (products, totalCount) = await _productRepository.GetProductsByCategorySlugAsync(categorySlug, page, pageSize);
+            var response = products.Select(p => new ProductResponse
+            {
+                ProductId = p.ProductId,
+                ProductName = p.ProductName,
+                Slug = p.Slug,
+                MainImageUrl = p.MainImageUrl,
+                BasePrice = p.BasePrice,
+                SellingPrice = (decimal)(p.DiscountPrice.HasValue ? p.DiscountPrice : p.BasePrice),
+                DiscountPercent = p.DiscountPrice.HasValue && p.BasePrice > 0
+                    ? (int)Math.Round((p.BasePrice - p.DiscountPrice.Value) / p.BasePrice * 100)
+                    : 0,
+                IsBestSeller = p.SoldQuantity >= 10
+            }).ToList();
+            return (response, totalCount);
         }
     }
 }

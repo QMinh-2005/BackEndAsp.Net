@@ -142,6 +142,9 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.OrderDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+            entity.Property(e => e.ShippingAddress).HasMaxLength(255);
+            entity.Property(e => e.ShippingFee).HasColumnType("decimal(18, 0)");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasDefaultValue("Chờ xử lý");
