@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 
@@ -15,19 +16,41 @@ namespace MyOwnLearning.Repositories
         {
             return await _dbset.Where(o => o.UserId == userId)
                 .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Detail)
                         .ThenInclude(d => d.Product)
                 .ToListAsync();
         }
-        public async Task<List<Order>> GetAllOrdersWithDetailsAsync()
+        public async Task<Order> GetOrderByIdAsync(int orderId)
         {
-            return await _dbset
+            var order = await _dbset
                 .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Detail)
                         .ThenInclude(d => d.Product)
+                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+            if (order == null)
+            {
+                throw new Exception("Không tìm thấy đơn hàng.");
+            }
+            return order;
+        }
+        public async Task<(List<Order> Orders, int TotalCount)> GetAllOrdersWithDetailsAsync(int page, int pageSize)
+        {
+
+            var orders = await _dbset
+                .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Detail)
+                        .ThenInclude(d => d.Product)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+            var totalCount = await _dbset.CountAsync();
+            return (orders, totalCount);
         }
         public async Task<Order> CreateOrderAsync(int userId, CreateOrderRequest request)
         {
@@ -47,7 +70,7 @@ namespace MyOwnLearning.Repositories
                 PhoneNumber = request.PhoneNumber,
                 ReceiverName = request.ReceiverName,
                 OrderDate = DateTime.UtcNow,
-                Status = "Chờ xử lý",
+                OrderStatusId = (int)OrderStatusEnum.ChoXacNhan,
                 Payment = new Payment
                 {
                     PaymentMethod = request.PaymentMethod,
@@ -88,24 +111,64 @@ namespace MyOwnLearning.Repositories
             }
             await _dbset.AddAsync(order);
             await _context.SaveChangesAsync();
+            await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
             return order;
         }
-        public async Task<Order> UpdateStatusOrderAsync(int orderId, string newStatus)
+        public async Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId)
         {
-            var order = await _dbset.FindAsync(orderId);
+            var order = await _dbset
+                        .Include(o => o.Payment)
+                        .Include(o => o.OrderDetails)
+                            .ThenInclude(od => od.Detail)
+                                .ThenInclude(d => d.Product)
+                        .FirstOrDefaultAsync(o => o.OrderId == orderId);
             if (order == null)
             {
                 throw new Exception("Không tìm thấy đơn hàng.");
             }
-            var validStatuses = new List<string> { "Chờ xử lý", "Đang giao", "Đã giao", "Đã hủy" };
-            if (!validStatuses.Contains(newStatus))
+            if (!Enum.IsDefined(typeof(OrderStatusEnum), newStatusId))
             {
-                throw new ArgumentException("Trạng thái không hợp lệ. Chỉ chấp nhận: Chờ xử lý, Đang giao, Đã giao, Đã hủy.");
+                throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
             }
-            order.Status = newStatus;
+            order.OrderStatusId = (int)newStatusId;
             _dbset.Update(order);
             await _context.SaveChangesAsync();
+            await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
             return order;
+        }
+        public async Task<Order> GetOrderByIdAndUserIdAsync(int orderId, int userId)
+        {
+            var order = await _dbset
+                .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Detail)
+                        .ThenInclude(d => d.Product)
+                .FirstOrDefaultAsync(o => o.OrderId == orderId && o.UserId == userId);
+            if (order == null)
+            {
+                throw new Exception("Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập.");
+            }
+            return order;
+        }
+        public async Task<(List<Order> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize)
+        {
+            if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
+            {
+                throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
+            }
+            var query = _dbset.Where(o => o.OrderStatusId == statusId)
+                .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Detail)
+                        .ThenInclude(d => d.Product);
+            var totalCount = await query.CountAsync();
+            var orders = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            return (orders, totalCount);
         }
     }
 }

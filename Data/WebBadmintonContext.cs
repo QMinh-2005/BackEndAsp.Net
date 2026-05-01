@@ -32,11 +32,17 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
 
+    public virtual DbSet<OrderStatus> OrderStatuses { get; set; }
+
     public virtual DbSet<Payment> Payments { get; set; }
 
     public virtual DbSet<Product> Products { get; set; }
 
     public virtual DbSet<ProductDetail> ProductDetails { get; set; }
+
+    public virtual DbSet<ProductImage> ProductImages { get; set; }
+
+    public virtual DbSet<ProductSpecification> ProductSpecifications { get; set; }
 
     public virtual DbSet<Review> Reviews { get; set; }
 
@@ -142,14 +148,18 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.OrderDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.OrderStatusId)
+                .HasDefaultValue(1)
+                .HasColumnName("OrderStatusID");
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.ShippingAddress).HasMaxLength(255);
             entity.Property(e => e.ShippingFee).HasColumnType("decimal(18, 0)");
-            entity.Property(e => e.Status)
-                .HasMaxLength(50)
-                .HasDefaultValue("Chờ xử lý");
             entity.Property(e => e.TotalAmount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.OrderStatus).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.OrderStatusId)
+                .HasConstraintName("FK_Orders_OrderStatuses");
 
             entity.HasOne(d => d.User).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.UserId)
@@ -184,6 +194,15 @@ public partial class WebBadmintonContext : DbContext
             entity.HasOne(d => d.Stringer).WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.StringerId)
                 .HasConstraintName("FK__OrderDeta__Strin__7E37BEF6");
+        });
+
+        modelBuilder.Entity<OrderStatus>(entity =>
+        {
+            entity.HasKey(e => e.OrderStatusId).HasName("PK__OrderSta__BC674F41592CF9EB");
+
+            entity.Property(e => e.OrderStatusId).HasColumnName("OrderStatusID");
+            entity.Property(e => e.Description).HasMaxLength(255);
+            entity.Property(e => e.StatusName).HasMaxLength(50);
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -256,6 +275,37 @@ public partial class WebBadmintonContext : DbContext
             entity.HasOne(d => d.Product).WithMany(p => p.ProductDetails)
                 .HasForeignKey(d => d.ProductId)
                 .HasConstraintName("FK_ProductDetail_Product");
+        });
+
+        modelBuilder.Entity<ProductImage>(entity =>
+        {
+            entity.HasKey(e => e.ImageId).HasName("PK__ProductI__7516F4EC7520F48D");
+
+            entity.Property(e => e.ImageId).HasColumnName("ImageID");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.ProductId).HasColumnName("ProductID");
+
+            entity.HasOne(d => d.Product).WithMany(p => p.ProductImages)
+                .HasForeignKey(d => d.ProductId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK__ProductIm__Produ__67DE6983");
+        });
+
+        modelBuilder.Entity<ProductSpecification>(entity =>
+        {
+            entity.HasKey(e => e.SpecId).HasName("PK__ProductS__883D519BEDCD67CC");
+
+            entity.Property(e => e.SpecId).HasColumnName("SpecID");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.ProductId).HasColumnName("ProductID");
+            entity.Property(e => e.SpecName).HasMaxLength(100);
+            entity.Property(e => e.SpecValue).HasMaxLength(250);
+
+            entity.HasOne(d => d.Product).WithMany(p => p.ProductSpecifications)
+                .HasForeignKey(d => d.ProductId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK__ProductSp__Produ__6BAEFA67");
         });
 
         modelBuilder.Entity<Review>(entity =>

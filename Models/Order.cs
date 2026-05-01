@@ -11,8 +11,6 @@ public partial class Order
 
     public decimal? TotalAmount { get; set; }
 
-    public string? Status { get; set; }
-
     public int UserId { get; set; }
 
     public string ShippingAddress { get; set; } = null!;
@@ -25,7 +23,11 @@ public partial class Order
 
     public decimal? ShippingFee { get; set; }
 
+    public int? OrderStatusId { get; set; }
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
+
+    public virtual OrderStatus? OrderStatus { get; set; }
 
     public virtual Payment? Payment { get; set; }
 
