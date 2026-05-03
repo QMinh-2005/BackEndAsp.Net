@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Mapster;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Response;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -16,6 +17,7 @@ namespace MyOwnLearning.Service
         Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests);
         Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
         Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize);
+        Task<ProductDetailResponse?> GetProductDetailAsync(string slug);
     }
     public class ProductService : IProductService
     {
@@ -328,6 +330,55 @@ namespace MyOwnLearning.Service
                 IsBestSeller = p.SoldQuantity >= 10
             }).ToList();
             return (response, totalCount);
+        }
+        public async Task<ProductDetailResponse?> GetProductDetailAsync(string slug)
+        {
+            var product = await _productRepository.GetProductDetailBySlugAsync(slug);
+            if (product == null) return null;
+
+            // Chuẩn bị danh sách Variants và tính InStock
+            var variants = product.ProductDetails?
+                .Select(d => new ProductVariant
+                {
+                    DetailId = d.DetailId,
+                    WeightClass = d.WeightClass,
+                    GripSize = d.GripSize,
+                    BalancePoint = d.BalancePoint,
+                    Stiffness = d.Stiffness,
+                    MaxTension = d.MaxTension,
+                    Price = d.Price,
+                    StockQuantity = d.StockQuantity ?? 0,
+
+                    // Trả về true nếu số lượng > 0
+                    InStock = (d.StockQuantity ?? 0) > 0
+                }).ToList() ?? new List<ProductVariant>();
+
+            return new ProductDetailResponse
+            {
+                ProductId = product.ProductId,
+                ProductName = product.ProductName,
+                BasePrice = product.BasePrice,
+                SellingPrice = product.DiscountPrice ?? product.BasePrice,
+                DiscountPercent = product.DiscountPrice.HasValue && product.BasePrice > 0
+                    ? (int)Math.Round((product.BasePrice - product.DiscountPrice.Value) / product.BasePrice * 100)
+                    : 0,
+                MainImageUrl = product.MainImageUrl,
+                Description = product.Description,
+
+                // Sản phẩm được coi là "Còn hàng" nếu CÓ ÍT NHẤT 1 phân loại (Variant) có Stock > 0
+                IsAvailable = variants.Any(v => v.InStock),
+
+                // Map danh sách ảnh
+                Imgaes = product.ProductImages?
+                    .OrderBy(i => i.DisplayOrder)
+                    .Select(i => new ProductImage
+                    {
+                        ImageUrl = i.ImageUrl,
+                        DisplayOrder = i.DisplayOrder
+                    }).ToList() ?? new List<ProductImage>(),
+
+                Variants = variants
+            };
         }
     }
 }

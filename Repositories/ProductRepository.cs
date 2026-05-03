@@ -93,5 +93,12 @@ namespace MyOwnLearning.Repositories
             var totalCount = await query.CountAsync();
             return (products, totalCount);
         }
+        public async Task<Product?> GetProductDetailBySlugAsync(string slug)
+        {
+            return await _dbset
+                .Include(p => p.ProductImages)
+                .Include(p => p.ProductDetails)
+                .FirstOrDefaultAsync(p => p.Slug == slug);
+        }
     }
 }

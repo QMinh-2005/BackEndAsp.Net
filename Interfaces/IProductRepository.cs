@@ -11,5 +11,7 @@ namespace MyOwnLearning.Interfaces
         Task<List<Product>> GetProductsForHomePageAsync(List<int> categoryIds);
         Task<(List<Product> products, int TotalCount)> GetProductsByCategorySlugAsync(string categorySlug, int page, int pageSize);
 
+        Task<Product?> GetProductDetailBySlugAsync(string slug);
+
     }
 }

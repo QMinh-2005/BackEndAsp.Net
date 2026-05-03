@@ -169,5 +169,26 @@ namespace MyOwnLearning.Controllers
                 totalPages = (int)Math.Ceiling((double)totalCount / pagesize)
             });
         }
+        [HttpGet("{slug}")]
+        public async Task<IActionResult> GetProductDetail(string slug)
+        {
+            try
+            {
+                var result = await _productService.GetProductDetailAsync(slug);
+
+                if (result == null)
+                    return NotFound(new { Message = "Không tìm thấy sản phẩm" });
+
+                return Ok(new
+                {
+                    Message = "Thành công",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
     }
 }
