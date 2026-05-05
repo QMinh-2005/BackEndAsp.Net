@@ -113,5 +113,26 @@ namespace MyOwnLearning.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
+        [HttpGet("admin-search")]
+        public async Task<IActionResult> SearchOrderAdmin([FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] DateTime? orderDate, [FromQuery] int? statusId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                var (orders, totalCount) = await _orderService.SearchOrderAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
+                int totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+                return Ok(new
+                {
+                    Orders = orders,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalPages = totalPages
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
     }
 }

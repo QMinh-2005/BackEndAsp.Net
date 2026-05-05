@@ -13,5 +13,6 @@ namespace MyOwnLearning.Interfaces
         Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId);
         Task<Order> GetOrderByIdAndUserIdAsync(int orderId, int userId);
         Task<(List<Order> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
+        Task<(List<Order> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
     }
 }

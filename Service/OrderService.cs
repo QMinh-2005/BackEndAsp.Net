@@ -14,6 +14,7 @@ namespace MyOwnLearning.Service
         Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId);
         Task<OrderResponse> CancelMyOrderAsync(int orderId, int userId);
         Task<(List<OrderResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
+        Task<(List<OrderResponse> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
     }
     public class OrderService : IOrderService
     {
@@ -271,6 +272,35 @@ namespace MyOwnLearning.Service
         public async Task<(List<OrderResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize)
         {
             var (orders, totalCount) = await _orderRepository.GetOrdersByStatusIdAsync(statusId, page, pageSize);
+            var orderResponses = orders.Select(o => new OrderResponse
+            {
+                OrderId = o.OrderId,
+                OrderDate = o.OrderDate,
+                TotalAmount = o.TotalAmount,
+                ShippingAddress = o.ShippingAddress,
+                ShippingFee = o.ShippingFee,
+                Note = o.Note,
+                ReceiverName = o.ReceiverName,
+                PhoneNumber = o.PhoneNumber,
+                PaymentMethod = o.Payment?.PaymentMethod ?? "Chưa xác định",
+                Status = o.OrderStatus?.StatusName ?? "Chưa xác định",
+                OrderDetails = o.OrderDetails.Select(od => new OrderDetailResponse
+                {
+                    OrderDetailId = od.OrderDetailId,
+                    DetailId = od.DetailId,
+                    Quantity = od.Quantity,
+                    UnitPrice = od.UnitPrice,
+                    IsStringingService = od.IsStringingService,
+                    StringBrand = od.StringBrand,
+                    TensionKg = od.TensionKg,
+                    ProductName = od.Detail?.Product?.ProductName
+                }).ToList()
+            }).ToList();
+            return (orderResponses, totalCount);
+        }
+        public async Task<(List<OrderResponse> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
+        {
+            var (orders, totalCount) = await _orderRepository.SearchOrderAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
             var orderResponses = orders.Select(o => new OrderResponse
             {
                 OrderId = o.OrderId,

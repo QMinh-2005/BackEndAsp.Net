@@ -170,5 +170,43 @@ namespace MyOwnLearning.Repositories
                 .ToListAsync();
             return (orders, totalCount);
         }
+        public async Task<(List<Order> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
+        {
+            var query = _dbset
+                .Include(o => o.Payment)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Detail)
+                        .ThenInclude(d => d.Product).AsQueryable();
+
+            if (minPrice.HasValue)
+            {
+                query = query.Where(o => o.TotalAmount >= minPrice.Value);
+            }
+            if (maxPrice.HasValue)
+            {
+                query = query.Where(o => o.TotalAmount <= maxPrice.Value);
+            }
+            if (statusId.HasValue)
+            {
+                if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
+                {
+                    throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
+                }
+                query = query.Where(o => o.OrderStatusId == statusId.Value);
+            }
+            if (orderDate.HasValue)
+            {
+                var startDate = orderDate.Value.Date;
+                var endDate = startDate.AddDays(1);
+                query = query.Where(o => o.OrderDate >= startDate && o.OrderDate < endDate);
+            }
+            var totalCount = await query.CountAsync();
+            var orders = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            return (orders, totalCount);
+        }
     }
 }
