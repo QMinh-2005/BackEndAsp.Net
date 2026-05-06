@@ -45,7 +45,18 @@ namespace MyOwnLearning.Controllers
         {
             var (Users, TotalCount) = await _userService.SearchByNameAsync(keyword);
             if (Users == null || TotalCount == 0) { return NotFound(new { Message = "Không tìm thấy người dùng nào." }); }
-            var userResponse = Users.Adapt<List<UserResponse>>();
+            var userResponse = Users.Select(u =>
+            {
+                var res = u.Adapt<UserResponse>();
+                var profile = u.UserProfiles.FirstOrDefault();
+                if (profile != null)
+                {
+                    res.FullName = profile.FullName;
+                    res.PhoneNumber = profile.PhoneNumber;
+                    res.DateOfBirth = profile.DateOfBirth;
+                }
+                return res;
+            }).ToList();
             return Ok(new
             {
                 Total = TotalCount,
@@ -69,17 +80,29 @@ namespace MyOwnLearning.Controllers
                 //Không dùng được adapt vì không thể gán kiểu IEnumerable<string?> với lại 1 object Roles (gồm ID và roleName0 được
                 //var user = request.Adapt<User>();  
 
-
                 // 1. TẠO THỦ CÔNG: Bỏ qua thuộc tính Roles, chỉ lấy thông tin cơ bản
                 var user = new User
                 {
                     Email = request.Email,
-                    FullName = request.FullName,
-                    PhoneNumber = request.PhoneNumber
-                    // TUYỆT ĐỐI KHÔNG gán Roles ở đây
+                    UserProfiles = new List<UserProfile>
+                    {
+                        new UserProfile
+                        {
+                            FullName = request.FullName,
+                            PhoneNumber = request.PhoneNumber,
+                            DateOfBirth = request.DateOfBirth
+                        }
+                    }
                 };
                 var createdUser = await _userService.CreateUserByAdminAsync(user, request.Password, request.Roles);
                 var response = createdUser.Adapt<UserResponse>();
+                var profile = createdUser.UserProfiles.FirstOrDefault();
+                if (profile != null)
+                {
+                    response.FullName = profile.FullName;
+                    response.PhoneNumber = profile.PhoneNumber;
+                    response.DateOfBirth = profile.DateOfBirth;
+                }
                 return Ok(
                    new
                    {

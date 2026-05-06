@@ -10,5 +10,6 @@ namespace MyOwnLearning.Interfaces
         Task<(List<User> Users, int TotalCount)> SearchByNameAsync(string keyword);
         Task<List<Role>> GetRolesByNamesAsync(IEnumerable<string> roles);
         Task<bool> IsExistEmailAsync(string email);
+        Task<User> GetUserWithProfileAsync(int userId);
     }
 }

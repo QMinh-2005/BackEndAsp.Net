@@ -7,5 +7,10 @@
 
         public string? PhoneNumber { get; set; }
         public DateTime? DateOfBirth { get; set; }
+        public string? City { get; set; }
+
+        public string? District { get; set; }
+
+        public string? DetailedAddress { get; set; }
     }
 }

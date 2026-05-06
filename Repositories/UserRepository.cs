@@ -12,7 +12,9 @@ namespace MyOwnLearning.Repositories
         public async Task<(List<User> Users, int TotalCount)> GetAllUserAsync(int page, int pageSize)
         {
             var query = _dbset.AsQueryable();
-            query = query.Include(u => u.Roles);
+            query = query
+                .Include(u => u.Roles)
+                .Include(u => u.UserProfiles);
             var TotalCount = await query.CountAsync();
             var users = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
             return (users, TotalCount);
@@ -26,7 +28,7 @@ namespace MyOwnLearning.Repositories
         public async Task<(List<User> Users, int TotalCount)> SearchByNameAsync(string keyword)
         {
             var query = _dbset.AsQueryable();
-            query = query.Include(u => u.Roles);
+            query = query.Include(u => u.Roles).Include(u => u.UserProfiles);
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 // 1. Loại bỏ các khoảng trắng thừa nếu có
@@ -34,7 +36,7 @@ namespace MyOwnLearning.Repositories
 
                 string pattern = "%" + string.Join("%", cleanedKeyword.ToCharArray()) + "%";
 
-                query = query.Where(u => EF.Functions.Like(u.FullName, pattern));
+                query = query.Where(u => u.UserProfiles.Any(p => EF.Functions.Like(p.FullName, pattern)));
             }
             var TotalCount = await query.CountAsync();
             var users = await query.ToListAsync();
@@ -52,6 +54,13 @@ namespace MyOwnLearning.Repositories
                 return true;
             }
             return false;
+        }
+        public async Task<User> GetUserWithProfileAsync(int userId)
+        {
+            return await _dbset
+                .Include(r => r.Roles)
+                .Include(u => u.UserProfiles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
         }
     }
 }

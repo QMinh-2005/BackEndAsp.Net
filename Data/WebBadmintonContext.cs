@@ -54,6 +54,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<UserProfile> UserProfiles { get; set; }
+
     public virtual DbSet<Voucher> Vouchers { get; set; }
 
     public virtual DbSet<VoucherCondition> VoucherConditions { get; set; }
@@ -394,13 +396,8 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
-            entity.Property(e => e.DateOfBirth).HasColumnType("datetime");
             entity.Property(e => e.Email).HasMaxLength(100);
-            entity.Property(e => e.FullName)
-                .HasMaxLength(100)
-                .HasDefaultValue("");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(15);
 
             entity.HasMany(d => d.Roles).WithMany(p => p.Users)
                 .UsingEntity<Dictionary<string, object>>(
@@ -420,6 +417,24 @@ public partial class WebBadmintonContext : DbContext
                         j.IndexerProperty<int>("UserId").HasColumnName("UserID");
                         j.IndexerProperty<int>("RoleId").HasColumnName("RoleID");
                     });
+        });
+
+        modelBuilder.Entity<UserProfile>(entity =>
+        {
+            entity.HasKey(e => e.ProfileId).HasName("PK__UserProf__290C8884BDDB7F28");
+
+            entity.Property(e => e.ProfileId).HasColumnName("ProfileID");
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.DateOfBirth).HasColumnType("datetime");
+            entity.Property(e => e.DetailedAddress).HasMaxLength(255);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.FullName).HasMaxLength(100);
+            entity.Property(e => e.PhoneNumber).HasMaxLength(15);
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.User).WithMany(p => p.UserProfiles)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("FK_UserProfiles_Users");
         });
 
         modelBuilder.Entity<Voucher>(entity =>

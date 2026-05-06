@@ -115,38 +115,77 @@ namespace MyOwnLearning.Service
         public async Task<bool> UpdateProfileAsync(int userId, ChangeInfoRequest request)
         {
 
-            var user = await _userRepository.GetByIdAsync(userId);
+            var user = await _userRepository.GetUserWithProfileAsync(userId);
             if (user == null) return false;
+            var profile = user.UserProfiles.FirstOrDefault();
+            if (profile == null)
+            {
+                profile = new UserProfile { UserId = userId };
+                user.UserProfiles.Add(profile);
+            }
             if (!string.IsNullOrWhiteSpace(request.FullName))
             {
-                user.FullName = request.FullName;
+                profile.FullName = request.FullName;
             }
             if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
             {
-                user.PhoneNumber = request.PhoneNumber;
+                profile.PhoneNumber = request.PhoneNumber;
+            }
+            if (!string.IsNullOrWhiteSpace(request.City))
+            {
+                profile.City = request.City;
+            }
+            if (!string.IsNullOrWhiteSpace(request.District))
+            {
+                profile.District = request.District;
+            }
+            if (!string.IsNullOrWhiteSpace(request.DetailedAddress))
+            {
+                profile.DetailedAddress = request.DetailedAddress;
             }
             if (request.DateOfBirth.HasValue)
             {
-                user.DateOfBirth = request.DateOfBirth;
+                profile.DateOfBirth = request.DateOfBirth;
             }
+
             await _userRepository.UpdateAsync(user);
             return true;
-
         }
         public async Task<InfoResponse?> GetInfoAsync(int id)
         {
-            var user = await _userRepository.GetByIdAsync(id);
+            var user = await _userRepository.GetUserWithProfileAsync(id);
             if (user == null)
             {
                 return null;
             }
             var res = user.Adapt<InfoResponse?>();
+            var profile = user.UserProfiles.FirstOrDefault();
+            if (profile != null)
+            {
+                res.FullName = profile.FullName;
+                res.PhoneNumber = profile.PhoneNumber;
+                res.DateOfBirth = profile.DateOfBirth;
+                res.City = profile.City;
+                res.District = profile.District;
+                res.DetailedAddress = profile.DetailedAddress;
+            }
             return res;
         }
         public async Task<(List<UserResponse>, int TotalCount)> GetAllUserAsync(int page, int pageSize)
         {
             var (users, totalCount) = await _userRepository.GetAllUserAsync(page, pageSize);
-            var userResponses = users.Adapt<List<UserResponse>>();
+            var userResponses = users.Select(u =>
+            {
+                var res = u.Adapt<UserResponse>();
+                var profile = u.UserProfiles.FirstOrDefault();
+                if (profile != null)
+                {
+                    res.FullName = profile.FullName;
+                    res.PhoneNumber = profile.PhoneNumber;
+                    res.DateOfBirth = profile.DateOfBirth;
+                }
+                return res;
+            }).ToList();
             return (userResponses, totalCount);
         }
     }

@@ -1,6 +1,6 @@
 ﻿using MyOwnLearning.Models;
 
-namespace MyOwnLearning.DTO.Response
+namespace MyOwnLearning.DTO.Response.Customer
 {
     public class ProductDetailResponse
     {
