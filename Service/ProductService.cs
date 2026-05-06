@@ -11,7 +11,7 @@ namespace MyOwnLearning.Service
     public interface IProductService
     {
         Task<List<ProductHomeResponse>> GetProductsForHomePageAsync();
-        Task<(List<Product> products, int TotalCount)> SearchAsync(string? key, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> SearchAsync(string? categorySlug, string? brandSlug, string? key, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize);
         string GenerateSlug(string categorySlug, string title);
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests);
@@ -94,9 +94,9 @@ namespace MyOwnLearning.Service
             }).ToList();
             return response;
         }
-        public async Task<(List<Product> products, int TotalCount)> SearchAsync(string? keyword, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize)
+        public async Task<(List<Product> products, int TotalCount)> SearchAsync(string? categorySlug, string? brandSlug, string? keyword, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize)
         {
-            return await _productRepository.SearchAsync(keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pageSize);
+            return await _productRepository.SearchAsync(categorySlug, brandSlug, keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pageSize);
         }
 
         //add 1 sản phẩm

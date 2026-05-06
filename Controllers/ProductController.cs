@@ -27,6 +27,8 @@ namespace MyOwnLearning.Controllers
 
         [HttpGet("searchAsync")]
         public async Task<IActionResult> SearchAll(
+            [FromQuery] string? categorySlug,
+            [FromQuery] string? brandSlug,
             [FromQuery] string? keyword,
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice,
@@ -38,7 +40,7 @@ namespace MyOwnLearning.Controllers
             )
         {
 
-            var (products, totalCount) = await _productService.SearchAsync(keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pagesize);
+            var (products, totalCount) = await _productService.SearchAsync(categorySlug, brandSlug, keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pagesize);
 
             var response = products.Select(p => new ProductResponse
             {
