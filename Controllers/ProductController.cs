@@ -26,7 +26,7 @@ namespace MyOwnLearning.Controllers
         }
 
         [HttpGet("searchAsync")]
-        public async Task<IActionResult> SeacrhAsync(
+        public async Task<IActionResult> SearchAll(
             [FromQuery] string? keyword,
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice,
