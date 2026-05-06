@@ -20,6 +20,7 @@ namespace MyOwnLearning.Repositories
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Detail)
                         .ThenInclude(d => d.Product)
+                .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
         }
         public async Task<Order> GetOrderByIdAsync(int orderId)
@@ -30,6 +31,7 @@ namespace MyOwnLearning.Repositories
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Detail)
                         .ThenInclude(d => d.Product)
+                .OrderByDescending(o => o.OrderDate)
                 .FirstOrDefaultAsync(o => o.OrderId == orderId);
             if (order == null)
             {
@@ -46,6 +48,7 @@ namespace MyOwnLearning.Repositories
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Detail)
                         .ThenInclude(d => d.Product)
+                 .OrderByDescending(o => o.OrderDate)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

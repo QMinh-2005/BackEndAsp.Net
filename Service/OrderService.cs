@@ -29,25 +29,18 @@ namespace MyOwnLearning.Service
         }
         private static readonly Dictionary<OrderStatusEnum, List<OrderStatusEnum>> _validTransitions = new()
         {
-            // Chờ xác nhận -> có thể Xác nhận hoặc Hủy
             { OrderStatusEnum.ChoXacNhan, new List<OrderStatusEnum> { OrderStatusEnum.DaXacNhan, OrderStatusEnum.DaHuy } },
-        
-            // Đã xác nhận -> có thể đem đi Đóng gói, Đan lưới, hoặc Hủy
+
             { OrderStatusEnum.DaXacNhan, new List<OrderStatusEnum> { OrderStatusEnum.DangXuLy, OrderStatusEnum.DangDanLuoi, OrderStatusEnum.DaHuy } },
-        
-            // Đang xử lý -> có thể chuyển sang Giao hàng (hoặc Hủy nếu chưa đưa cho shipper)
+
             { OrderStatusEnum.DangXuLy, new List<OrderStatusEnum> { OrderStatusEnum.DangGiaoHang, OrderStatusEnum.DaHuy } },
-        
-            // Đang đan lưới -> đan xong có thể về Đang xử lý (để đóng gói chung món khác) hoặc Giao hàng luôn. KHÔNG CHO HỦY VÌ ĐÃ CẮT CƯỚC.
+
             { OrderStatusEnum.DangDanLuoi, new List<OrderStatusEnum> { OrderStatusEnum.DangXuLy, OrderStatusEnum.DangGiaoHang } },
-        
-            // Đang giao hàng -> có thể Đã giao hoặc Hủy (nếu khách bom hàng / giao thất bại)
+
             { OrderStatusEnum.DangGiaoHang, new List<OrderStatusEnum> { OrderStatusEnum.DaGiaoHang, OrderStatusEnum.DaHuy } },
-        
-            // Đã giao hàng -> Hoàn tất
+
             { OrderStatusEnum.DaGiaoHang, new List<OrderStatusEnum> { OrderStatusEnum.HoanTat } },
-        
-            // Hoàn tất và Đã hủy là trạng thái cuối, không đi đâu nữa
+
             { OrderStatusEnum.HoanTat, new List<OrderStatusEnum>() },
             { OrderStatusEnum.DaHuy, new List<OrderStatusEnum>() }
         };
@@ -83,7 +76,7 @@ namespace MyOwnLearning.Service
                     TensionKg = od.TensionKg,
                     ProductName = od.Detail?.Product?.ProductName
                 }).ToList()
-            }).ToList();
+            }).OrderByDescending(o => o.OrderDate).ToList();
 
             return orderResponses;
         }
@@ -114,7 +107,7 @@ namespace MyOwnLearning.Service
                     TensionKg = od.TensionKg,
                     ProductName = od.Detail?.Product?.ProductName
                 }).ToList()
-            }).ToList();
+            }).OrderByDescending(o => o.OrderDate).ToList();
             return (orderResponses, totalCount);
         }
         public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request)

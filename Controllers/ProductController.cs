@@ -28,17 +28,17 @@ namespace MyOwnLearning.Controllers
         [HttpGet("searchAsync")]
         public async Task<IActionResult> SeacrhAsync(
             [FromQuery] string? keyword,
-            [FromQuery] string? categorySlug, // Hứng tham số từ FE
-            [FromQuery] string? brandSlug,
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice,
             [FromQuery] bool? Voucher,
+            [FromQuery] bool? isBestSeller,
+            [FromQuery] string? sortBy,
             int page = 1,
             int pagesize = 10
             )
         {
 
-            var (products, totalCount) = await _productService.SearchAsync(keyword, categorySlug, brandSlug, minPrice, maxPrice, Voucher, page, pagesize);
+            var (products, totalCount) = await _productService.SearchAsync(keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pagesize);
 
             var response = products.Select(p => new ProductResponse
             {

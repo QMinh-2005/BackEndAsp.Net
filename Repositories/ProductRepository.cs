@@ -18,26 +18,13 @@ namespace MyOwnLearning.Repositories
             var products = await query.OrderByDescending(x => x.ProductId).ToListAsync();
             return (products, totalCount);
         }
-        public virtual async Task<(List<Product> products, int TotalCount)> SearchAsync(string? keyword, string? categorySlug, string? brandSlug, decimal? minPrice, decimal? maxPrice, bool? Voucher, int page, int pageSize)
+        public virtual async Task<(List<Product> products, int TotalCount)> SearchAsync(string? keyword, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize)
         {
-            var query = _dbset
-        .Include(p => p.Category)
-        .Include(p => p.Brand)
-        .AsQueryable();
+            var query = _dbset.AsQueryable();
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 keyword = keyword.ToLower();
                 query = query.Where(p => p.ProductName.Contains(keyword));
-            }
-            if (!string.IsNullOrWhiteSpace(categorySlug))
-            {
-                query = query.Where(p => p.Category != null && p.Category.Slug == categorySlug);
-            }
-
-            // 3. Lọc theo Thương hiệu (Ví dụ: adidas)
-            if (!string.IsNullOrWhiteSpace(brandSlug))
-            {
-                query = query.Where(p => p.Brand != null && p.Brand.Slug == brandSlug);
             }
             if (minPrice.HasValue)
             {
@@ -51,8 +38,21 @@ namespace MyOwnLearning.Repositories
             {
                 query = query.Where(p => p.VoucherConditions.Any());
             }
-            int TotalCount = await query.CountAsync();
+            if (isBestSeller.HasValue && isBestSeller.Value == true)
+            {
+                query = query.Where(p => p.SoldQuantity >= 10);
+            }
 
+            int TotalCount = await query.CountAsync();
+            query = sortBy switch
+            {
+                "price_asc" => query.OrderBy(p => p.DiscountPrice != null ? p.DiscountPrice : p.BasePrice),
+                "price_desc" => query.OrderByDescending(p => p.DiscountPrice != null ? p.DiscountPrice : p.BasePrice),
+                "name_asc" => query.OrderBy(p => p.ProductName),
+                "name_desc" => query.OrderByDescending(p => p.ProductName),
+                "oldest" => query.OrderBy(p => p.ProductId),
+                _ => query.OrderByDescending(p => p.ProductId)
+            };
             var products = await query
                 .OrderByDescending(p => p.ProductId)
                 .Skip((page - 1) * pageSize)
