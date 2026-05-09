@@ -1,9 +1,12 @@
 ﻿using System.Text.RegularExpressions;
 using Mapster;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
+using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
+using MyOwnLearning.Helpers;
 
 namespace MyOwnLearning.Service
 {
@@ -12,22 +15,81 @@ namespace MyOwnLearning.Service
         Task<List<ProductHomeResponse>> GetProductsForHomePageAsync();
         Task<(List<Product> products, int TotalCount)> SearchAsync(string? categorySlug, string? brandSlug, string? key, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize);
         string GenerateSlug(string categorySlug, string title);
-        Task<Product> CreateProductAsync(CreateProductRequest request);
-        Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests);
-        Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
         Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize);
         Task<ProductDetailResponse?> GetProductDetailAsync(string slug);
+
+        //Trang 1
+        Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize);
+        Task<Product> CreateProductAsync(CreateProductRequest request);
+        Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
+        Task<bool> DeleteProductAsync(int productId);
+
+
+        //Trang 2
+
+        Task<(List<ProductDetailAdminRespones> productDetails, int TotalCount)> GetProductDetailsByIdAsync(int productId, int page, int pageSize);
+        Task<ProductDetailAdminRespones> AddVariantAsync(int productId, CreateProductDetailRequest request);
+        Task<ProductDetailAdminRespones> UpdateVariantAsync(int productDetailId, UpdateProductDetailRequest request);
+        Task<bool> DeleteVariantAsync(int productDetailId);
+
+        //Trang 3: Các phương thức liên quan đến quản lý SerialNumber sẽ được thêm sau khi hoàn thành phần quản lý Variant, vì SerialNumber phụ thuộc vào Variant (ProductDetail)
+        Task<VariantSerialsResponse> GetSerialNumbersByVariantIdAsync(int productDetailId, int page, int pageSize);
+        Task<SerialNumberDto> AddSingleSerialNumberAsync(int productDetailId, CreateProductSerialRequest request);
     }
     public class ProductService : IProductService
     {
         private readonly IProductRepository _productRepository;
+        private readonly IProductDetailRepository _productDetailRepository;
         private readonly ICategoryRepository _categoryRepository;
         private readonly IBrandRepository _brandRepository;
-        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository, IBrandRepository brandRepository)
+        private readonly IProductSerialRepository _productSerialRepository;
+        public ProductService(IProductRepository productRepository, IProductDetailRepository productDetailRepository, ICategoryRepository categoryRepository, IBrandRepository brandRepository, IProductSerialRepository productSerialRepository)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
             _brandRepository = brandRepository;
+            _productSerialRepository = productSerialRepository;
+            _productDetailRepository = productDetailRepository;
+        }
+
+        public string NormalizeProductName(string categoryName, string inputProductName)
+        {
+            if (string.IsNullOrWhiteSpace(inputProductName)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(categoryName)) return CapitalizeFirstLetter(inputProductName.Trim());
+
+            string feName = inputProductName.Trim();
+            string catName = categoryName.Trim();
+
+            // Kịch bản 1: FE đã nhập chuẩn hoặc gần chuẩn toàn bộ (VD: "Vợt cầu lông Yonex", "vợt cầu lông yonex")
+            // StringComparison.OrdinalIgnoreCase tự động bỏ qua khác biệt HOA/thường
+            if (feName.StartsWith(catName, StringComparison.OrdinalIgnoreCase))
+            {
+                return CapitalizeFirstLetter(feName);
+            }
+
+            // Lấy từ đầu tiên của tên Danh mục (VD: chữ "Vợt" trong "Vợt cầu lông")
+            string firstWordOfCat = catName.Split(' ')[0];
+
+            // Kịch bản 2: FE nhập bị lặp từ đầu tiên nhưng sai kiểu (VD: "vợt Yonex Astrox", "VỢT lining")
+            if (feName.StartsWith(firstWordOfCat, StringComparison.OrdinalIgnoreCase))
+            {
+                // Cắt bỏ phần bị lặp đi, chỉ lấy phần đuôi (Substring dựa trên độ dài của từ đầu tiên)
+                string remainingName = feName.Substring(firstWordOfCat.Length).Trim();
+
+                // Ghép tên Danh mục chuẩn trong DB với phần đuôi
+                return CapitalizeFirstLetter($"{catName} {remainingName}");
+            }
+
+            // Kịch bản 3: FE chỉ nhập đúng tên model (VD: "Astrox 100zz" hoặc "Halbertec 8000")
+            return CapitalizeFirstLetter($"{catName} {feName}");
+        }
+
+        // Hàm phụ trợ: Giúp viết hoa chữ cái đầu tiên của sản phẩm cho đẹp
+        private string CapitalizeFirstLetter(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            if (text.Length == 1) return text.ToUpper();
+            return char.ToUpper(text[0]) + text.Substring(1);
         }
 
         private string RemoveVietnameseAccents(string text)
@@ -99,31 +161,52 @@ namespace MyOwnLearning.Service
         }
 
         //add 1 sản phẩm
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brand, int page, int pageSize)
+        {
+            var (products, totalCount) = await _productRepository.GetProductsForAdminAsync(keyword, categoryId, brand, page, pageSize);
+            var response = products.Select(p => new ProductAdminResponse
+            {
+                ProductId = p.ProductId,
+                ProductName = p.ProductName,
+                MainImageUrl = p.MainImageUrl,
+                BasePrice = p.BasePrice,
+                DiscountPrice = p.DiscountPrice,
+                DiscountPercent = p.DiscountPrice.HasValue && p.BasePrice > 0
+                    ? (int)Math.Round((p.BasePrice - p.DiscountPrice.Value) / p.BasePrice * 100)
+                    : 0,
+                BrandName = p.Brand != null ? p.Brand.BrandName : "N/A",
+                CategoryName = p.Category != null ? p.Category.CategoryName : "N/A",
+                VariantsCount = p.ProductDetails?.Count ?? 0,
+                TotalStock = p.ProductDetails?.Sum(d => d.StockQuantity ?? 0) ?? 0,
+                SoldQuantity = p.SoldQuantity ?? 0,
+            }).ToList();
+            return (response, totalCount);
+        }
         public async Task<Product?> CreateProductAsync(CreateProductRequest request)
         {
-            // 1. CHẠY SONG SONG 2 TRUY VẤN KIỂM TRA (Tối ưu hiệu năng). Không cần sử dụng await _brand ..... await cate....
-            var brandTask = _brandRepository.GetByIdAsync(request.BrandId);
-            var categoryTask = _categoryRepository.GetByIdAsync(request.CategoryId);
-
-            await Task.WhenAll(brandTask, categoryTask);
-
-            var checkBrand = brandTask.Result;
-            var checkCategory = categoryTask.Result;
-
-            // 2. SỬA LẠI LOGIC NGƯỢC VÀ NÉM EXCEPTION RÕ RÀNG
+            var checkBrand = await _brandRepository.GetByIdAsync(request.BrandId);
             if (checkBrand == null)
             {
                 throw new Exception($"Thương hiệu với ID {request.BrandId} không tồn tại trong hệ thống.");
             }
 
+            var checkCategory = await _categoryRepository.GetByIdAsync(request.CategoryId);
             if (checkCategory == null)
             {
                 throw new Exception($"Danh mục với ID {request.CategoryId} không tồn tại trong hệ thống.");
             }
+
+            string finalProductName = NormalizeProductName(checkCategory.CategoryName ?? "", request.ProductName);
+
+            string generatedSlug = GenerateSlug("", finalProductName);
+
+            var existingProduct = await _productRepository.GetProductDetailBySlugAsync(generatedSlug);
+            if (existingProduct != null)
+                throw new Exception($"Sản phẩm '{finalProductName}' đã tồn tại trong hệ thống!");
             var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
             var newPro = new Product
             {
-                ProductName = request.ProductName,
+                ProductName = finalProductName,
                 BrandId = request.BrandId,
                 CategoryId = request.CategoryId,
                 Description = request.Description,
@@ -132,185 +215,71 @@ namespace MyOwnLearning.Service
                 DiscountPrice = request.DiscountPrice,
                 SoldQuantity = 0, // Sản phẩm mới chưa bán được cái nào
                                   // Tự động sinh Slug từ tên sản phẩm
-                Slug = GenerateSlug(category.Slug, request.ProductName),
-
-                // 2. Chuyển đổi danh sách Detail DTO sang Entity ProductDetail
-                ProductDetails = request.ProductDetailRequests.Select(d => new ProductDetail
-                {
-                    WeightClass = d.WeightClass,
-                    GripSize = d.GripSize,
-                    BalancePoint = d.BalancePoint,
-                    Stiffness = d.Stiffness,
-                    MaxTension = d.MaxTension,
-                    Price = d.Price,
-                    SerialNumber = d.SerialNumber,
-                    StockQuantity = d.StockQuantity ?? 1,
-                }).ToList()
+                Slug = generatedSlug,
             };
             await _productRepository.AddAsync(newPro);
             return newPro;
         }
-
-        //add nhiều sản phẩm
-        public async Task<List<Product>> CreateMultipleProductAsync(List<CreateProductRequest> requests)
-        {
-            // 1. TỐI ƯU HÓA KIỂM TRA (CHỈ GỌI DB 1 LẦN ĐỂ KIỂM TRA TẤT CẢ)
-
-            // Lấy ra danh sách các CategoryID và BrandID độc nhất (Distinct) từ mảng gửi lên
-            var uniqueCategoryIds = requests.Select(r => r.CategoryId).Distinct().ToList();
-            var uniqueBrandIds = requests.Select(r => r.BrandId).Distinct().ToList();
-
-            // Query xuống DB xem những ID nào thực sự tồn tại (Giả sử Repo của bạn có hàm GetAll hoặc bạn tự viết hàm check)
-            // Ví dụ dùng cách lấy tất cả ID hợp lệ:
-            var validCategoryIds = (await _categoryRepository.GetAllAsync())
-                                    .Select(c => c.CategoryId).ToList();
-            var validBrandIds = (await _brandRepository.GetAllAsync())
-                                    .Select(b => b.BrandId).ToList();
-
-            // Kiểm tra xem có ID nào gửi lên mà KHÔNG CÓ trong DB không
-            var invalidCategories = uniqueCategoryIds.Except(validCategoryIds).ToList();
-            if (invalidCategories.Any())
-                throw new Exception($"Các Category ID sau không tồn tại: {string.Join(", ", invalidCategories)}");
-            //Hàm dừng luôn khi ném ra lỗi
-
-            var invalidBrands = uniqueBrandIds.Except(validBrandIds).ToList();
-            if (invalidBrands.Any())
-                throw new Exception($"Các Brand ID sau không tồn tại: {string.Join(", ", invalidBrands)}");
-            var newPro = new List<Product>();
-            foreach (var request in requests)
-            {
-                var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
-                var pro = new Product
-                {
-                    ProductName = request.ProductName,
-                    BrandId = request.BrandId,
-                    CategoryId = request.CategoryId,
-                    Description = request.Description,
-                    BasePrice = request.BasePrice,
-                    MainImageUrl = request.MainImageUrl,
-                    DiscountPrice = request.DiscountPrice,
-                    SoldQuantity = 0,
-                    Slug = GenerateSlug(category.Slug, request.ProductName),
-                    ProductDetails = request.ProductDetailRequests.Select(d => new ProductDetail
-                    {
-                        WeightClass = d.WeightClass,
-                        GripSize = d.GripSize,
-                        BalancePoint = d.BalancePoint,
-                        Stiffness = d.Stiffness,
-                        MaxTension = d.MaxTension,
-                        Price = d.Price,
-                        SerialNumber = d.SerialNumber,
-                        StockQuantity = d.StockQuantity ?? 1
-                    }).ToList()
-                };
-                newPro.Add(pro);
-            }
-            await _productRepository.AddRangeAsync(newPro);
-            return newPro;
-        }
         public async Task<Product?> UpdateProductAsync(int idPro, UpdateProductRequest request)
         {
+            // 1. LẤY SẢN PHẨM (Lưu ý: Repository cần Include ProductDetails và ProductSerials)
             var pro = await _productRepository.GetByIdAsync(idPro);
             if (pro == null) return null;
+
             bool categoryChanged = request.CategoryId.HasValue && request.CategoryId.Value != pro.CategoryId;
             bool nameChanged = !string.IsNullOrWhiteSpace(request.ProductName) && request.ProductName != pro.ProductName;
-            // 1. KIỂM TRA BRAND VÀ CATEGORY CÓ TỒN TẠI KHÔNG (NẾU CÓ TRUYỀN LÊN)
 
-            var brandTask = request.BrandId.HasValue
-        ? _brandRepository.GetByIdAsync(request.BrandId.Value)
-        : Task.FromResult<Brand?>(null);
-
-            var categoryTask = request.CategoryId.HasValue
-                ? _categoryRepository.GetByIdAsync(request.CategoryId.Value)
-                : Task.FromResult<Category?>(null);
-
-            // Chờ cả 2 truy vấn chạy xong cùng lúc
-            await Task.WhenAll(brandTask, categoryTask);
-
-            // 2. XỬ LÝ KẾT QUẢ KIỂM TRA (Gán ID mới nếu hợp lệ)
             if (request.BrandId.HasValue)
             {
-                if (brandTask.Result == null) throw new Exception($"Thương hiệu với ID {request.BrandId.Value} không tồn tại.");
+                var brand = await _brandRepository.GetByIdAsync(request.BrandId.Value);
+                if (brand == null) throw new Exception($"Thương hiệu ID {request.BrandId.Value} không tồn tại.");
                 pro.BrandId = request.BrandId.Value;
             }
+
+            Category? currentCategory = null;
             if (request.CategoryId.HasValue)
             {
-                if (brandTask.Result == null) throw new Exception($"Danh mục với ID {request.CategoryId.Value} không tồn tại.");
+                currentCategory = await _categoryRepository.GetByIdAsync(request.CategoryId.Value);
+                if (currentCategory == null) throw new Exception($"Danh mục ID {request.CategoryId.Value} không tồn tại.");
                 pro.CategoryId = request.CategoryId.Value;
             }
 
-            // Biến này dùng để lưu tạm Category (tránh phải gọi DB lần 2 để lấy Slug)
-            Category? currentCategory = null;
-
-            if (nameChanged)
+            if (nameChanged || categoryChanged)
             {
-                pro.ProductName = request.ProductName!;
-            }
-
-            if (categoryChanged || nameChanged)
-            {
-                // Nếu ở trên chưa lấy Category, thì bây giờ mới phải gọi DB để lấy
                 if (currentCategory == null && pro.CategoryId.HasValue)
                 {
                     currentCategory = await _categoryRepository.GetByIdAsync(pro.CategoryId.Value);
                 }
 
-                // Cập nhật lại Slug kết hợp từ Slug danh mục và Tên sản phẩm
                 if (currentCategory != null)
                 {
-                    pro.Slug = GenerateSlug(currentCategory.Slug, pro.ProductName);
+                    // Chuẩn hóa lại tên (VD: Nếu đổi từ Balo sang Vợt, tên sẽ được gắn tiền tố mới)
+                    string inputName = nameChanged ? request.ProductName! : pro.ProductName;
+                    pro.ProductName = NormalizeProductName(currentCategory.CategoryName ?? "", inputName);
+
+                    // Sinh lại Slug mới dựa trên tên đã chuẩn hóa
+                    pro.Slug = GenerateSlug("", pro.ProductName);
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(request.Description)) pro.Description = request.Description;
-
             if (request.BasePrice.HasValue) pro.BasePrice = request.BasePrice.Value;
             if (request.DiscountPrice.HasValue) pro.DiscountPrice = request.DiscountPrice.Value;
-
             if (!string.IsNullOrWhiteSpace(request.MainImageUrl)) pro.MainImageUrl = request.MainImageUrl;
 
-            if (request.ProductDetailRequests != null && request.ProductDetailRequests.Any())
-            {
-                foreach (var detailReq in request.ProductDetailRequests)
-                {
-                    // Bỏ qua nếu Frontend không gửi SerialNumber (Vì đây là khóa nhận diện)
-                    if (string.IsNullOrWhiteSpace(detailReq.SerialNumber)) continue;
-
-                    // Tìm xem SerialNumber này đã có trong Database của sản phẩm này chưa
-                    var existingDetail = pro.ProductDetails.FirstOrDefault(d => d.SerialNumber == detailReq.SerialNumber);
-
-                    if (existingDetail != null)
-                    {
-                        // TRƯỜNG HỢP 1: ĐÃ TỒN TẠI -> CẬP NHẬT (Giữ nguyên nếu rỗng)
-                        if (!string.IsNullOrWhiteSpace(detailReq.WeightClass)) existingDetail.WeightClass = detailReq.WeightClass;
-                        if (!string.IsNullOrWhiteSpace(detailReq.GripSize)) existingDetail.GripSize = detailReq.GripSize;
-                        if (!string.IsNullOrWhiteSpace(detailReq.BalancePoint)) existingDetail.BalancePoint = detailReq.BalancePoint;
-                        if (!string.IsNullOrWhiteSpace(detailReq.Stiffness)) existingDetail.Stiffness = detailReq.Stiffness;
-
-                        if (detailReq.MaxTension.HasValue) existingDetail.MaxTension = detailReq.MaxTension.Value;
-                        if (detailReq.Price.HasValue) existingDetail.Price = detailReq.Price.Value;
-                        if (detailReq.StockQuantity.HasValue) existingDetail.StockQuantity = detailReq.StockQuantity.Value;
-                    }
-                    else
-                    {
-                        // TRƯỜNG HỢP 2: CHƯA TỒN TẠI -> THÊM MỚI VÀO SẢN PHẨM HIỆN TẠI
-                        pro.ProductDetails.Add(new ProductDetail
-                        {
-                            SerialNumber = detailReq.SerialNumber,
-                            WeightClass = detailReq.WeightClass, // Thêm mới thì có gì lưu nấy
-                            GripSize = detailReq.GripSize,
-                            BalancePoint = detailReq.BalancePoint,
-                            Stiffness = detailReq.Stiffness,
-                            MaxTension = detailReq.MaxTension,
-                            // Nếu không nhập giá riêng thì lấy giá gốc của sản phẩm, không có số lượng thì gán 1
-                            Price = detailReq.Price ?? pro.BasePrice,
-                            StockQuantity = detailReq.StockQuantity ?? 1
-                        });
-                    }
-                }
-            }
             await _productRepository.UpdateAsync(pro);
             return pro;
+        }
+
+        public async Task<bool> DeleteProductAsync(int productId)
+        {
+            var product = await _productRepository.GetProductForDeletionAsync(productId);
+            if (product == null) return false;
+            bool hasSoldProducts = product.ProductDetails.Any(d => d.ProductSerials.Any(s => s.Status == ProductSerialStatus.Sold || s.Status == ProductSerialStatus.Reserved));
+            if (hasSoldProducts)
+                throw new Exception("Không thể xóa sản phẩm vì đã có đơn hàng liên quan. Vui lòng kiểm tra lại.");
+            await _productRepository.DeleteAsync(productId);
+            return true;
         }
         public async Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize)
         {
@@ -377,6 +346,190 @@ namespace MyOwnLearning.Service
                     }).ToList() ?? new List<ProductImage>(),
 
                 Variants = variants
+            };
+        }
+
+        public async Task<(List<ProductDetailAdminRespones> productDetails, int TotalCount)> GetProductDetailsByIdAsync(int productId, int page, int pageSize)
+        {
+            var (productDetails, totalCount) = await _productRepository.GetProductDetailsByIdAsync(productId, page, pageSize);
+            var response = productDetails.Select(d => new ProductDetailAdminRespones
+            {
+                DetailId = d.DetailId,
+                WeightClass = d.WeightClass,
+                GripSize = d.GripSize,
+                BalancePoint = d.BalancePoint,
+                Stiffness = d.Stiffness,
+                MaxTension = d.MaxTension,
+                Price = d.Price,
+                StockQuantity = d.StockQuantity,
+                TotalSerialNumbers = d.ProductSerials?.Count ?? 0
+            }).ToList();
+            return (response, totalCount);
+        }
+
+        public async Task<ProductDetailAdminRespones> AddVariantAsync(int productId, CreateProductDetailRequest request)
+        {
+            var product = await _productRepository.GetByIdAsync(productId);
+            if (product == null) throw new Exception($"Sản phẩm với ID {productId} không tồn tại.");
+            string? validWeightClass = VariantValidationHelper.ValidateAndMapStringAttribute(request.WeightClass, VariantAttributes.WeightClasses);
+            string? validGripSize = VariantValidationHelper.ValidateAndMapStringAttribute(request.GripSize, VariantAttributes.GripSizes);
+            string? validBalancePoint = VariantValidationHelper.ValidateAndMapStringAttribute(request.BalancePoint, VariantAttributes.BalancePoints);
+            string? validStiffness = VariantValidationHelper.ValidateAndMapStringAttribute(request.Stiffness, VariantAttributes.Stiffness);
+            int? validMaxTension = VariantValidationHelper.ValidateAndMapMaxTension(request.MaxTension);
+            var (existingVariant, _) = await _productRepository.GetProductDetailsByIdAsync(productId, 1, 100);
+            bool isDuplicate = existingVariant.Any(v =>
+                v.WeightClass == validWeightClass &&
+                v.GripSize == validGripSize &&
+                v.BalancePoint == validBalancePoint &&
+                v.Stiffness == validStiffness &&
+                v.MaxTension == validMaxTension);
+            if (isDuplicate)
+                throw new Exception("Variant đã tồn tại.");
+            var newVariant = new ProductDetail
+            {
+                ProductId = productId,
+                WeightClass = validWeightClass,
+                GripSize = validGripSize,
+                BalancePoint = validBalancePoint,
+                Stiffness = validStiffness,
+                MaxTension = validMaxTension,
+                Price = request.Price > 0 ? request.Price : throw new Exception("Giá trị Price không hợp lệ."),
+                StockQuantity = request.StockQuantity,
+                ProductSerials = new List<ProductSerial>() // Khởi tạo danh sách Serial rỗng cho Variant mới
+            };
+            await _productDetailRepository.AddAsync(newVariant);
+
+            var serialNumbers = new List<ProductSerial>();
+            for (int i = 0; i < request.StockQuantity; i++)
+            {
+                string randomString = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
+
+                // Tương đương 'SN-' + CAST(pd.DetailID) + '-' + CAST(Nums.n) + '-' + UPPER(LEFT(NEWID(), 6))
+                string generatedSerial = $"SN-{newVariant.DetailId}-{i}-{randomString}";
+                serialNumbers.Add(new ProductSerial
+                {
+                    DetailId = newVariant.DetailId,
+                    SerialNumber = generatedSerial,
+                    Status = ProductSerialStatus.InStock,
+                    ImportDate = DateTime.UtcNow
+                });
+            }
+            newVariant.ProductSerials = serialNumbers;
+            await _productDetailRepository.UpdateAsync(newVariant);
+            var res = newVariant.Adapt<ProductDetailAdminRespones>();
+            res.TotalSerialNumbers = serialNumbers.Count;
+            return res;
+        }
+        public async Task<ProductDetailAdminRespones> UpdateVariantAsync(int productDetailId, UpdateProductDetailRequest request)
+        {
+            var variant = await _productDetailRepository.getProductDetailByIdAsync(productDetailId);
+            if (variant == null) throw new Exception($"Variant với ID {productDetailId} không tồn tại.");
+            variant.WeightClass = VariantValidationHelper.ValidateAndMapStringAttribute(request.WeightClass, VariantAttributes.WeightClasses);
+            variant.GripSize = VariantValidationHelper.ValidateAndMapStringAttribute(request.GripSize, VariantAttributes.GripSizes);
+            variant.BalancePoint = VariantValidationHelper.ValidateAndMapStringAttribute(request.BalancePoint, VariantAttributes.BalancePoints);
+            variant.Stiffness = VariantValidationHelper.ValidateAndMapStringAttribute(request.Stiffness, VariantAttributes.Stiffness);
+            variant.MaxTension = VariantValidationHelper.ValidateAndMapMaxTension(request.MaxTension);
+            variant.Price = request.Price ?? variant.Price;
+
+            var currentStock = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.InStock);
+            int stockDifference = request.StockQuantity - currentStock;
+            if (stockDifference > 0)
+            {
+                for (int i = 0; i < stockDifference; i++)
+                {
+                    string randomString = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
+
+                    string generatedSerial = $"SN-{variant.DetailId}-{i}-{randomString}";
+                    variant.ProductSerials.Add(new ProductSerial
+                    {
+                        DetailId = variant.DetailId,
+                        SerialNumber = generatedSerial,
+                        Status = ProductSerialStatus.InStock,
+                        ImportDate = DateTime.UtcNow
+                    });
+                }
+            }
+            else if (stockDifference < 0)
+            {
+                int numbersToRemove = Math.Abs(stockDifference);
+                var SerialsToRemove = variant.ProductSerials.Where(s => s.Status == ProductSerialStatus.InStock).OrderByDescending(s => s.ImportDate).Take(numbersToRemove).ToList();
+                foreach (var serial in SerialsToRemove)
+                {
+                    variant.ProductSerials.Remove(serial);
+                }
+            }
+            variant.StockQuantity = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.InStock);
+            await _productDetailRepository.UpdateAsync(variant);
+            var res = variant.Adapt<ProductDetailAdminRespones>();
+            res.TotalSerialNumbers = variant.ProductSerials?.Count ?? 0;
+            return res;
+        }
+        public async Task<bool> DeleteVariantAsync(int productDetailId)
+        {
+            var variant = await _productDetailRepository.getProductDetailByIdAsync(productDetailId);
+            if (variant == null) return false;
+            bool hasSoldSerials = variant.ProductSerials.Any(s => s.Status == ProductSerialStatus.Sold || s.Status == ProductSerialStatus.Reserved);
+            if (hasSoldSerials)
+                throw new Exception("Không thể xóa variant vì đã có đơn hàng liên quan. Vui lòng kiểm tra lại.");
+            await _productDetailRepository.DeleteAsync(productDetailId);
+            return true;
+        }
+
+
+        public async Task<VariantSerialsResponse> GetSerialNumbersByVariantIdAsync(int productDetailId, int page, int pageSize)
+        {
+            var variant = await _productDetailRepository.getProductDetailWithSerialNumberAsync(productDetailId);
+            if (variant == null) throw new Exception($"Variant với ID {productDetailId} không tồn tại.");
+            var specList = new List<string>();
+            if (!string.IsNullOrWhiteSpace(variant.WeightClass)) specList.Add(variant.WeightClass);
+            if (!string.IsNullOrWhiteSpace(variant.GripSize)) specList.Add(variant.GripSize);
+            if (!string.IsNullOrWhiteSpace(variant.BalancePoint)) specList.Add(variant.BalancePoint);
+
+            string variantInfo = string.Join(" - ", specList);
+            var serials = variant.ProductSerials
+                .OrderByDescending(s => s.ImportDate) // Sắp xếp theo ngày nhập (mới nhất lên đầu)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(s => new SerialNumberDto
+                {
+                    SerialNumber = s.SerialNumber,
+                    Status = s.Status,
+                    ImportDate = s.ImportDate ?? DateTime.UtcNow
+                }).ToList();
+            return new VariantSerialsResponse
+            {
+                DetailId = variant.DetailId,
+                VariantInfo = variantInfo,
+                TotalCount = variant.ProductSerials.Count,
+                InStockCount = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.InStock),
+                SoldCount = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.Sold),
+                DefectiveCount = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.Defective),
+                ReservedCount = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.Reserved),
+                Serials = serials
+            };
+        }
+        public async Task<SerialNumberDto> AddSingleSerialNumberAsync(int productDetailId, CreateProductSerialRequest request)
+        {
+            var checkExistingSerial = await _productSerialRepository.IsSerialNumberExistsAsync(request.SerialNumber);
+            if (checkExistingSerial)
+                throw new Exception($"Số Serial '{request.SerialNumber}' đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.");
+            var variant = await _productDetailRepository.getProductDetailByIdAsync(productDetailId);
+            if (variant == null) throw new Exception($"Variant với ID {productDetailId} không tồn tại.");
+            var result = new ProductSerial
+            {
+                DetailId = productDetailId,
+                SerialNumber = request.SerialNumber,
+                Status = ProductSerialStatus.Normalized(request.Status),
+                ImportDate = request.ImportDate ?? DateTime.UtcNow
+            };
+            variant.ProductSerials.Add(result);
+            variant.StockQuantity = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.InStock);
+            await _productDetailRepository.UpdateAsync(variant);
+            return new SerialNumberDto
+            {
+                SerialNumber = result.SerialNumber,
+                Status = result.Status,
+                ImportDate = result.ImportDate ?? DateTime.UtcNow
             };
         }
     }

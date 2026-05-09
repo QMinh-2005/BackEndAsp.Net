@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 
@@ -107,6 +108,55 @@ namespace MyOwnLearning.Repositories
                 .Include(p => p.ProductImages)
                 .Include(p => p.ProductDetails)
                 .FirstOrDefaultAsync(p => p.Slug == slug);
+        }
+
+        public async Task<(List<ProductDetail> productDetails, int TotalCount)> GetProductDetailsByIdAsync(int productId, int page, int pageSize)
+        {
+            var query = _context.Set<ProductDetail>()
+                .Include(ps => ps.ProductSerials)
+                .Where(p => p.ProductId == productId).AsQueryable();
+            var productDetails = await query
+                .OrderByDescending(pd => pd.DetailId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            var totalCount = await query.CountAsync();
+            return (productDetails, totalCount);
+        }
+        // Thêm vào ProductRepository.cs
+        public async Task<Product?> GetProductForDeletionAsync(int productId)
+        {
+            return await _dbset
+                .Include(p => p.ProductDetails)
+                    .ThenInclude(d => d.ProductSerials)
+                .FirstOrDefaultAsync(p => p.ProductId == productId);
+        }
+        public async Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize)
+        {
+            var query = _dbset
+                .Include(p => p.Brand)
+                .Include(p => p.Category)
+                .Include(p => p.ProductDetails)
+                .AsQueryable();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                query = query.Where(p => p.ProductName.Contains(keyword));
+            }
+            if (categoryId.HasValue)
+            {
+                query = query.Where(p => p.CategoryId == categoryId.Value);
+            }
+            if (brandId.HasValue)
+            {
+                query = query.Where(p => p.BrandId == brandId.Value);
+            }
+            var totalCount = await query.CountAsync();
+            var products = await query
+                .OrderByDescending(p => p.ProductId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            return (products, totalCount);
         }
     }
 }

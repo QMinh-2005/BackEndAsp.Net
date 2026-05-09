@@ -1,4 +1,5 @@
-﻿using MyOwnLearning.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using MyOwnLearning.Data;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 
@@ -8,6 +9,18 @@ namespace MyOwnLearning.Repositories
     {
         public ProductDetailRepository(WebBadmintonContext context) : base(context)
         {
+        }
+        public async Task<ProductDetail> getProductDetailByIdAsync(int detailId)
+        {
+            return await _dbset
+                .Include(s => s.ProductSerials)
+                .FirstOrDefaultAsync(s => s.DetailId == detailId);
+        }
+        public async Task<ProductDetail> getProductDetailWithSerialNumberAsync(int detailId)
+        {
+            return await _dbset
+                .Include(s => s.ProductSerials)
+                .FirstOrDefaultAsync(s => s.DetailId == detailId);
         }
     }
 }

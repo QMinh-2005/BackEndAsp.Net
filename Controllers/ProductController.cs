@@ -77,84 +77,6 @@ namespace MyOwnLearning.Controllers
             });
         }
 
-        //Hàm tạo một sản phẩm => CÓ thể cho admin nhập tay trong hệ thống
-        [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateProduct(CreateProductRequest request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-                if (request.ProductDetailRequests == null || !request.ProductDetailRequests.Any())
-                {
-                    return BadRequest(new { message = "Sản phẩm phải có ít nhất một trường Detail" });
-                }
-                var createdProduct = await _productService.CreateProductAsync(request);
-                return Ok(new
-                {
-                    message = "Tạo sản phẩm thành công!",
-                    ProductId = createdProduct.ProductId
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Không thể thêm sản phẩm. Lỗi hệ thống:" + ex.Message });
-            }
-        }
-
-        //Hàm tạo nhiều sản phẩm => có thể nhập từ file vào
-        [HttpPost("bulk")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateMultipleProducts(List<CreateProductRequest> requests)
-        {
-            try
-            {
-                if (requests == null || !requests.Any())
-                {
-                    return BadRequest(new { Message = "Danh sách sản phẩm trống!" });
-                }
-                var createdProducts = await _productService.CreateMultipleProductAsync(requests);
-                return Ok(new
-                {
-                    Message = $"Đã tạo thành công {createdProducts.Count} sản phẩm mới!",
-                    CreatedProductIds = createdProducts.Select(p => p.ProductId).ToList()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Thêm thất bại. Lỗi hệ thống: " + ex.Message });
-            }
-        }
-
-        [HttpPut("{idPro}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct(int idPro, UpdateProductRequest request)
-        {
-            try
-            {
-                // Gọi Service để xử lý logic "Giữ nguyên nếu rỗng"
-                var updatedProduct = await _productService.UpdateProductAsync(idPro, request);
-
-                // Nếu Service trả về null nghĩa là ID không tồn tại
-                if (updatedProduct == null)
-                {
-                    return NotFound(new { Message = $"Không tìm thấy sản phẩm với ID = {idPro}" });
-                }
-
-                return Ok(new
-                {
-                    Message = "Cập nhật sản phẩm thành công!",
-                    ProductId = updatedProduct.ProductId
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Lỗi hệ thống khi cập nhật: " + ex.Message });
-            }
-        }
         [HttpGet("product_of_category/{categorySlug}")]
         public async Task<IActionResult> GetProductsByCategorySlug(
             string categorySlug,
@@ -185,6 +107,215 @@ namespace MyOwnLearning.Controllers
                 {
                     Message = "Thành công",
                     Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        //Hàm tạo một sản phẩm => CÓ thể cho admin nhập tay trong hệ thống
+        [HttpGet("product-management")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetProductsForManagement([FromQuery] string? keyword, [FromQuery] int? categoryId, [FromQuery] int? brandId, int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.GetProductsForAdminAsync(keyword, categoryId, brandId, page, pagesize);
+                return Ok(new
+                {
+                    Message = "Thành công",
+                    Items = products,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pagesize,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / pagesize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateProduct(CreateProductRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+                var createdProduct = await _productService.CreateProductAsync(request);
+                return Ok(new
+                {
+                    message = "Tạo sản phẩm thành công!",
+                    ProductId = createdProduct.ProductId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Không thể thêm sản phẩm. Lỗi hệ thống:" + ex.Message });
+            }
+        }
+
+        [HttpPut("{idPro}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateProduct(int idPro, UpdateProductRequest request)
+        {
+            try
+            {
+                // Gọi Service để xử lý logic "Giữ nguyên nếu rỗng"
+                var updatedProduct = await _productService.UpdateProductAsync(idPro, request);
+
+                if (updatedProduct == null)
+                {
+                    return NotFound(new { Message = $"Không tìm thấy sản phẩm với ID = {idPro}" });
+                }
+                return Ok(new
+                {
+                    Message = "Cập nhật sản phẩm thành công!",
+                    ProductId = updatedProduct.ProductId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi cập nhật sản phẩm: " + ex.Message });
+            }
+        }
+
+        [HttpDelete("{idPro}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteProduct(int idPro)
+        {
+            try
+            {
+                var success = await _productService.DeleteProductAsync(idPro);
+                if (!success)
+                    return NotFound(new { Message = $"Không tìm thấy sản phẩm với ID = {idPro}" });
+                return Ok(new { Message = "Xóa sản phẩm thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi xóa sản phẩm: " + ex.Message });
+            }
+        }
+
+        [HttpGet("{productId}/management-details")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetProductDetailsById(int productId, int page = 1, int pagesize = 10)
+        {
+            try
+            {
+                var (productDetails, totalCount) = await _productService.GetProductDetailsByIdAsync(productId, page, pagesize);
+                if (productDetails == null || !productDetails.Any())
+                    return NotFound(new { Message = "Không tìm thấy chi tiết sản phẩm nào" });
+                return Ok(new
+                {
+                    Message = "Thành công",
+                    Items = productDetails,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pagesize,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / pagesize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+        [HttpPost("{productId}/management-details")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AddProductDetail(int productId, CreateProductDetailRequest request)
+        {
+            try
+            {
+                var newDetail = await _productService.AddVariantAsync(productId, request);
+                return Ok(new
+                {
+                    Message = "Thêm chi tiết sản phẩm thành công!",
+                    Detail = newDetail
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+        [HttpPut("management-details/{detailId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateVariant(int detailId, UpdateProductDetailRequest request)
+        {
+            try
+            {
+                var updatedDetail = await _productService.UpdateVariantAsync(detailId, request);
+                if (updatedDetail == null)
+                    return NotFound(new { Message = $"Không tìm thấy chi tiết sản phẩm với ID = {detailId}" });
+                return Ok(new
+                {
+                    Message = "Cập nhật chi tiết sản phẩm thành công!",
+                    Detail = updatedDetail
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi cập nhật chi tiết sản phẩm: " + ex.Message });
+            }
+        }
+        [HttpDelete("management-details/{detailId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteVariant(int detailId)
+        {
+            try
+            {
+                var success = await _productService.DeleteVariantAsync(detailId);
+                if (!success)
+                    return NotFound(new { Message = $"Không tìm thấy chi tiết sản phẩm với ID = {detailId}" });
+                return Ok(new { Message = "Xóa chi tiết sản phẩm thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi xóa chi tiết sản phẩm: " + ex.Message });
+            }
+        }
+        [HttpGet("management-details/{detailId}/serials")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetVariantSerials(int detailId, int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                var result = await _productService.GetSerialNumbersByVariantIdAsync(detailId, page, pageSize);
+                if (result == null)
+                    return NotFound(new { Message = $"Không tìm thấy chi tiết sản phẩm với ID = {detailId}" });
+                return Ok(new
+                {
+                    Message = "Thành công",
+                    Data = result,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling((double)result.TotalCount / pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+        [HttpPost("management-details/{detailId}/serials")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AddVariantSerials(int detailId, CreateProductSerialRequest request)
+        {
+            try
+            {
+                var newSerials = await _productService.AddSingleSerialNumberAsync(detailId, request);
+                return Ok(new
+                {
+                    Message = "Thêm số serial thành công!",
+                    Serials = newSerials
                 });
             }
             catch (Exception ex)

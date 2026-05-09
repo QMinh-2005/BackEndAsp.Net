@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Models;
 
 namespace MyOwnLearning.Interfaces
@@ -13,5 +14,8 @@ namespace MyOwnLearning.Interfaces
 
         Task<Product?> GetProductDetailBySlugAsync(string slug);
 
+        Task<(List<ProductDetail> productDetails, int TotalCount)> GetProductDetailsByIdAsync(int productId, int page, int pageSize);
+        Task<Product?> GetProductForDeletionAsync(int productId);
+        Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize);
     }
 }

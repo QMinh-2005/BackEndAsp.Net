@@ -42,6 +42,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<ProductImage> ProductImages { get; set; }
 
+    public virtual DbSet<ProductSerial> ProductSerials { get; set; }
+
     public virtual DbSet<ProductSpecification> ProductSpecifications { get; set; }
 
     public virtual DbSet<Review> Reviews { get; set; }
@@ -262,14 +264,11 @@ public partial class WebBadmintonContext : DbContext
         {
             entity.HasKey(e => e.DetailId).HasName("PK__ProductD__135C314DBD1D0E93");
 
-            entity.HasIndex(e => e.SerialNumber, "UQ__ProductD__048A0008441FC351").IsUnique();
-
             entity.Property(e => e.DetailId).HasColumnName("DetailID");
             entity.Property(e => e.BalancePoint).HasMaxLength(50);
             entity.Property(e => e.GripSize).HasMaxLength(20);
             entity.Property(e => e.Price).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.ProductId).HasColumnName("ProductID");
-            entity.Property(e => e.SerialNumber).HasMaxLength(100);
             entity.Property(e => e.Stiffness).HasMaxLength(50);
             entity.Property(e => e.StockQuantity).HasDefaultValue(0);
             entity.Property(e => e.WeightClass).HasMaxLength(20);
@@ -292,6 +291,27 @@ public partial class WebBadmintonContext : DbContext
                 .HasForeignKey(d => d.ProductId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK__ProductIm__Produ__67DE6983");
+        });
+
+        modelBuilder.Entity<ProductSerial>(entity =>
+        {
+            entity.HasKey(e => e.SerialId).HasName("PK__ProductS__5E5B3EC4C4511F1E");
+
+            entity.HasIndex(e => e.SerialNumber, "UQ__ProductS__048A00081119C84A").IsUnique();
+
+            entity.Property(e => e.SerialId).HasColumnName("SerialID");
+            entity.Property(e => e.DetailId).HasColumnName("DetailID");
+            entity.Property(e => e.ImportDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.SerialNumber).HasMaxLength(100);
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasDefaultValue("InStock");
+
+            entity.HasOne(d => d.Detail).WithMany(p => p.ProductSerials)
+                .HasForeignKey(d => d.DetailId)
+                .HasConstraintName("FK_ProductSerials_ProductDetails");
         });
 
         modelBuilder.Entity<ProductSpecification>(entity =>
