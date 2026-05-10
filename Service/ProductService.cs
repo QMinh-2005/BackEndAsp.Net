@@ -266,7 +266,6 @@ namespace MyOwnLearning.Service
             if (request.BasePrice.HasValue) pro.BasePrice = request.BasePrice.Value;
             if (request.DiscountPrice.HasValue) pro.DiscountPrice = request.DiscountPrice.Value;
             if (!string.IsNullOrWhiteSpace(request.MainImageUrl)) pro.MainImageUrl = request.MainImageUrl;
-
             await _productRepository.UpdateAsync(pro);
             return pro;
         }
@@ -304,7 +303,6 @@ namespace MyOwnLearning.Service
             var product = await _productRepository.GetProductDetailBySlugAsync(slug);
             if (product == null) return null;
 
-            // Chuẩn bị danh sách Variants và tính InStock
             var variants = product.ProductDetails?
                 .Select(d => new ProductVariant
                 {

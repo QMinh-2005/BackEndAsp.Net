@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MyOwnLearning.DTO.Response.Admin;
+using Ocelot.DependencyInjection;
 
 var config = TypeAdapterConfig<User, UserResponse>.NewConfig()
     .Map(dest => dest.Roles, src => src.Roles.Select(r => r.RoleName))
@@ -42,7 +43,7 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IProductDetailRepository, ProductDetailRepository>();
 builder.Services.AddScoped<ICartItemRepository, CartItemRepository>();
 builder.Services.AddScoped<IProductSerialRepository, ProductSerialRepository>();
-
+builder.Services.AddOcelot();
 builder.Services.AddAuthentication(options =>
 {
     // Thiết lập Scheme mặc định là JwtBearer

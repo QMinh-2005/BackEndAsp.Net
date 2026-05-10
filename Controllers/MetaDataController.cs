@@ -27,7 +27,15 @@ namespace MyOwnLearning.Controllers
                 {
                     Label = $"{t} lbs",
                     Value = (int?)t
-                }))
+                })),
+
+                    SerialStatus = new[]
+                {
+                    new { Label = "Còn hàng", Value = ProductSerialStatus.InStock },
+                    new { Label = "Đã bán", Value = ProductSerialStatus.Sold },
+                    new { Label = "Lỗi/ Hỏng", Value = ProductSerialStatus.Defective },
+                    new { Label = "Đã đặt", Value = ProductSerialStatus.Reserved }
+                }
                 };
                 return Ok(new
                 {
