@@ -522,6 +522,13 @@ namespace MyOwnLearning.Service
             };
             variant.ProductSerials.Add(result);
             variant.StockQuantity = variant.ProductSerials.Count(s => s.Status == ProductSerialStatus.InStock);
+            if (request.Status == ProductSerialStatus.Sold)
+            {
+                var product = await _productRepository.GetByIdAsync(variant.ProductId);
+                if (product == null) throw new Exception("Sản phẩm liên quan đến variant không tồn tại.");
+                product.SoldQuantity = (product.SoldQuantity ?? 0) + 1;
+                await _productRepository.UpdateAsync(product);
+            }
             await _productDetailRepository.UpdateAsync(variant);
             return new SerialNumberDto
             {
