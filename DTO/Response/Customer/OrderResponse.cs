@@ -26,5 +26,6 @@
         public string? StringBrand { get; set; }
         public decimal? TensionKg { get; set; }
         public string? ProductName { get; set; }
+        public List<string> SerialNumbers { get; set; } = new List<string>();
     }
 }

@@ -304,6 +304,7 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.ImportDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.OrderDetailId).HasColumnName("OrderDetailID");
             entity.Property(e => e.SerialNumber).HasMaxLength(100);
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
@@ -312,6 +313,10 @@ public partial class WebBadmintonContext : DbContext
             entity.HasOne(d => d.Detail).WithMany(p => p.ProductSerials)
                 .HasForeignKey(d => d.DetailId)
                 .HasConstraintName("FK_ProductSerials_ProductDetails");
+
+            entity.HasOne(d => d.OrderDetail).WithMany(p => p.ProductSerials)
+                .HasForeignKey(d => d.OrderDetailId)
+                .HasConstraintName("FK_ProductSerials_OrderDetails");
         });
 
         modelBuilder.Entity<ProductSpecification>(entity =>

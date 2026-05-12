@@ -15,5 +15,9 @@ public partial class ProductSerial
 
     public DateTime? ImportDate { get; set; }
 
+    public int? OrderDetailId { get; set; }
+
     public virtual ProductDetail Detail { get; set; } = null!;
+
+    public virtual OrderDetail? OrderDetail { get; set; }
 }

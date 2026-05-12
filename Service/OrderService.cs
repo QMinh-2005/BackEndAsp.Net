@@ -1,4 +1,5 @@
-﻿using MyOwnLearning.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
 using MyOwnLearning.Enums;
@@ -112,11 +113,9 @@ namespace MyOwnLearning.Service
         }
         public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var order = await _orderRepository.CreateOrderAsync(userId, request);
-                await transaction.CommitAsync();
                 return new OrderResponse
                 {
                     OrderId = order.OrderId,
@@ -138,19 +137,19 @@ namespace MyOwnLearning.Service
                         IsStringingService = od.IsStringingService,
                         StringBrand = od.StringBrand,
                         TensionKg = od.TensionKg,
-                        ProductName = od.Detail?.Product?.ProductName
+                        ProductName = od.Detail?.Product?.ProductName,
+                        SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
                     }).ToList()
                 };
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 throw new Exception("Đã xảy ra lỗi khi tạo đơn hàng: " + ex.Message);
             }
         }
         public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId)
         {
-            var order = await _orderRepository.GetOrderByIdAsync(orderId); // Giả sử bạn có hàm GetById
+            var order = await _orderRepository.GetOrderByIdAsync(orderId);
             if (order == null)
             {
                 throw new Exception("Không tìm thấy đơn hàng.");
@@ -159,10 +158,10 @@ namespace MyOwnLearning.Service
             {
                 throw new ArgumentException("Trạng thái mới không hợp lệ.");
             }
+
             var currentStatus = (OrderStatusEnum)order.OrderStatusId;
             var nextStatus = (OrderStatusEnum)newStatusId;
 
-            // Chặn nếu trạng thái mới giống trạng thái hiện tại
             if (currentStatus == nextStatus)
             {
                 throw new ArgumentException("Đơn hàng đang ở trạng thái này rồi.");
@@ -171,22 +170,23 @@ namespace MyOwnLearning.Service
             {
                 throw new InvalidOperationException($"Không thể chuyển trạng thái từ {currentStatus} sang {nextStatus}.");
             }
-            order.OrderStatusId = newStatusId;
-            await _orderRepository.UpdateAsync(order);
-            await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
+
+            // ✅ Gọi UpdateStatusOrderAsync thay vì UpdateAsync để tận dụng RevertOrderAsync trong Repository
+            var updatedOrder = await _orderRepository.UpdateStatusOrderAsync(orderId, newStatusId);
+
             return new OrderResponse
             {
-                OrderId = order.OrderId,
-                OrderDate = order.OrderDate,
-                TotalAmount = order.TotalAmount,
-                ShippingAddress = order.ShippingAddress,
-                ShippingFee = order.ShippingFee,
-                Note = order.Note,
-                ReceiverName = order.ReceiverName,
-                PhoneNumber = order.PhoneNumber,
-                PaymentMethod = order.Payment?.PaymentMethod ?? "Chưa xác định",
-                Status = order.OrderStatus?.StatusName ?? "Chưa xác định",
-                OrderDetails = order.OrderDetails.Select(od => new OrderDetailResponse
+                OrderId = updatedOrder.OrderId,
+                OrderDate = updatedOrder.OrderDate,
+                TotalAmount = updatedOrder.TotalAmount,
+                ShippingAddress = updatedOrder.ShippingAddress,
+                ShippingFee = updatedOrder.ShippingFee,
+                Note = updatedOrder.Note,
+                ReceiverName = updatedOrder.ReceiverName,
+                PhoneNumber = updatedOrder.PhoneNumber,
+                PaymentMethod = updatedOrder.Payment?.PaymentMethod ?? "Chưa xác định",
+                Status = updatedOrder.OrderStatus?.StatusName ?? "Chưa xác định",
+                OrderDetails = updatedOrder.OrderDetails.Select(od => new OrderDetailResponse
                 {
                     OrderDetailId = od.OrderDetailId,
                     DetailId = od.DetailId,
@@ -218,12 +218,26 @@ namespace MyOwnLearning.Service
                 {
                     throw new InvalidOperationException("Không thể hủy đơn hàng");
                 }
-                foreach (var OrderDetail in order.OrderDetails)
+                foreach (var orderDetail in order.OrderDetails)
                 {
-                    if (OrderDetail.Detail != null)
+                    if (orderDetail.Detail != null)
                     {
-                        OrderDetail.Detail.StockQuantity += OrderDetail.Quantity;
-                        _context.ProductDetails.Update(OrderDetail.Detail);
+                        orderDetail.Detail.StockQuantity += orderDetail.Quantity;
+
+                        if (orderDetail.Detail.Product != null)
+                            orderDetail.Detail.Product.SoldQuantity -= orderDetail.Quantity;
+
+                        _context.ProductDetails.Update(orderDetail.Detail);
+                    }
+
+                    var serialsToRevert = await _context.ProductSerials
+                        .Where(ps => ps.OrderDetailId == orderDetail.OrderDetailId)
+                        .ToListAsync();
+
+                    foreach (var serial in serialsToRevert)
+                    {
+                        serial.Status = ProductSerialStatus.InStock;
+                        serial.OrderDetailId = null;
                     }
                 }
                 order.OrderStatusId = (int)OrderStatusEnum.DaHuy;

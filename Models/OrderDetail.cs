@@ -27,6 +27,8 @@ public partial class OrderDetail
 
     public virtual Order? Order { get; set; }
 
+    public virtual ICollection<ProductSerial> ProductSerials { get; set; } = new List<ProductSerial>();
+
     public virtual Review? Review { get; set; }
 
     public virtual User? Stringer { get; set; }
