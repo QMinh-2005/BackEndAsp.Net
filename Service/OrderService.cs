@@ -75,7 +75,8 @@ namespace MyOwnLearning.Service
                     IsStringingService = od.IsStringingService,
                     StringBrand = od.StringBrand,
                     TensionKg = od.TensionKg,
-                    ProductName = od.Detail?.Product?.ProductName
+                    ProductName = od.Detail?.Product?.ProductName,
+                    SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
                 }).ToList()
             }).OrderByDescending(o => o.OrderDate).ToList();
 
@@ -106,7 +107,9 @@ namespace MyOwnLearning.Service
                     IsStringingService = od.IsStringingService,
                     StringBrand = od.StringBrand,
                     TensionKg = od.TensionKg,
-                    ProductName = od.Detail?.Product?.ProductName
+                    ProductName = od.Detail?.Product?.ProductName,
+                    SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
+
                 }).ToList()
             }).OrderByDescending(o => o.OrderDate).ToList();
             return (orderResponses, totalCount);
@@ -195,7 +198,9 @@ namespace MyOwnLearning.Service
                     IsStringingService = od.IsStringingService,
                     StringBrand = od.StringBrand,
                     TensionKg = od.TensionKg,
-                    ProductName = od.Detail?.Product?.ProductName
+                    ProductName = od.Detail?.Product?.ProductName,
+                    SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
+
                 }).ToList()
             };
         }
@@ -266,7 +271,8 @@ namespace MyOwnLearning.Service
                         IsStringingService = od.IsStringingService,
                         StringBrand = od.StringBrand,
                         TensionKg = od.TensionKg,
-                        ProductName = od.Detail?.Product?.ProductName
+                        ProductName = od.Detail?.Product?.ProductName,
+                        SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
                     }).ToList()
                 };
             }
@@ -300,7 +306,8 @@ namespace MyOwnLearning.Service
                     IsStringingService = od.IsStringingService,
                     StringBrand = od.StringBrand,
                     TensionKg = od.TensionKg,
-                    ProductName = od.Detail?.Product?.ProductName
+                    ProductName = od.Detail?.Product?.ProductName,
+                    SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>()
                 }).ToList()
             }).ToList();
             return (orderResponses, totalCount);
@@ -329,7 +336,8 @@ namespace MyOwnLearning.Service
                     IsStringingService = od.IsStringingService,
                     StringBrand = od.StringBrand,
                     TensionKg = od.TensionKg,
-                    ProductName = od.Detail?.Product?.ProductName
+                    ProductName = od.Detail?.Product?.ProductName,
+                    SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList() ?? new List<string>() 
                 }).ToList()
             }).ToList();
             return (orderResponses, totalCount);
