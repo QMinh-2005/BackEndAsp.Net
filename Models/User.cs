@@ -25,5 +25,7 @@ public partial class User
 
     public virtual ICollection<UserProfile> UserProfiles { get; set; } = new List<UserProfile>();
 
+    public virtual ICollection<UserVoucher> UserVouchers { get; set; } = new List<UserVoucher>();
+
     public virtual ICollection<Role> Roles { get; set; } = new List<Role>();
 }

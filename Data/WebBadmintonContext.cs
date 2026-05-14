@@ -58,6 +58,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
 
+    public virtual DbSet<UserVoucher> UserVouchers { get; set; }
+
     public virtual DbSet<Voucher> Vouchers { get; set; }
 
     public virtual DbSet<VoucherCondition> VoucherConditions { get; set; }
@@ -462,6 +464,29 @@ public partial class WebBadmintonContext : DbContext
                 .HasConstraintName("FK_UserProfiles_Users");
         });
 
+        modelBuilder.Entity<UserVoucher>(entity =>
+        {
+            entity.HasKey(e => e.UserVoucherId).HasName("PK__UserVouc__8017D4B99B0865FA");
+
+            entity.Property(e => e.UserVoucherId).HasColumnName("UserVoucherID");
+            entity.Property(e => e.SavedDate)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.UsedDate).HasColumnType("datetime");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+            entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+
+            entity.HasOne(d => d.User).WithMany(p => p.UserVouchers)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UserVouchers_Users");
+
+            entity.HasOne(d => d.Voucher).WithMany(p => p.UserVouchers)
+                .HasForeignKey(d => d.VoucherId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UserVouchers_Vouchers");
+        });
+
         modelBuilder.Entity<Voucher>(entity =>
         {
             entity.HasKey(e => e.VoucherId).HasName("PK__Vouchers__3AEE79C19C5585F2");
@@ -475,6 +500,7 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.IsGlobal).HasDefaultValue(true);
             entity.Property(e => e.IsPercent).HasDefaultValue(false);
             entity.Property(e => e.MaxDiscountAmount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.MaxUsagePerUser).HasDefaultValue(1);
             entity.Property(e => e.MinOrderValue)
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 2)");
@@ -487,9 +513,14 @@ public partial class WebBadmintonContext : DbContext
             entity.HasKey(e => e.ConditionId).HasName("PK__VoucherC__37F5C0EF86653ECD");
 
             entity.Property(e => e.ConditionId).HasColumnName("ConditionID");
+            entity.Property(e => e.BrandId).HasColumnName("BrandID");
             entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
             entity.Property(e => e.ProductId).HasColumnName("ProductID");
             entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+
+            entity.HasOne(d => d.Brand).WithMany(p => p.VoucherConditions)
+                .HasForeignKey(d => d.BrandId)
+                .HasConstraintName("FK_VoucherConditions_Brands");
 
             entity.HasOne(d => d.Category).WithMany(p => p.VoucherConditions)
                 .HasForeignKey(d => d.CategoryId)

@@ -25,5 +25,13 @@ public partial class Voucher
 
     public bool? IsGlobal { get; set; }
 
+    public int? UsageLimit { get; set; }
+
+    public int UsedCount { get; set; }
+
+    public int MaxUsagePerUser { get; set; }
+
+    public virtual ICollection<UserVoucher> UserVouchers { get; set; } = new List<UserVoucher>();
+
     public virtual ICollection<VoucherCondition> VoucherConditions { get; set; } = new List<VoucherCondition>();
 }

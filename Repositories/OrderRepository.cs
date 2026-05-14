@@ -150,6 +150,7 @@ namespace MyOwnLearning.Repositories
                     foreach (var serial in SerialToUpdate)
                     {
                         serial.Status = ProductSerialStatus.Sold;
+                        orderDetail.ProductSerials.Add(serial);
                     }
                 }
                 decimal shippingFee = 0;
