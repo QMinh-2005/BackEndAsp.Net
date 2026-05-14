@@ -31,6 +31,8 @@ public partial class Voucher
 
     public int MaxUsagePerUser { get; set; }
 
+    public virtual ICollection<OrderVoucher> OrderVouchers { get; set; } = new List<OrderVoucher>();
+
     public virtual ICollection<UserVoucher> UserVouchers { get; set; } = new List<UserVoucher>();
 
     public virtual ICollection<VoucherCondition> VoucherConditions { get; set; } = new List<VoucherCondition>();

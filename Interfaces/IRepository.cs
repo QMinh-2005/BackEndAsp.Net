@@ -10,6 +10,8 @@
         Task<T> UpdateAsync(T entity);
         Task DeleteAsync(int id);
         Task AddRangeAsync(IEnumerable<T> entities);
+        Task SaveChangesAsync();
+
 
     }
 }

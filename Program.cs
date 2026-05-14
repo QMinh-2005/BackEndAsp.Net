@@ -43,6 +43,10 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IProductDetailRepository, ProductDetailRepository>();
 builder.Services.AddScoped<ICartItemRepository, CartItemRepository>();
 builder.Services.AddScoped<IProductSerialRepository, ProductSerialRepository>();
+builder.Services.AddScoped<IVoucherRepository, VoucherRepository>();
+builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<IUserVoucherRepository, UserVoucherRepository>();
+
 builder.Services.AddOcelot();
 builder.Services.AddAuthentication(options =>
 {

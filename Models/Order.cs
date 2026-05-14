@@ -9,7 +9,7 @@ public partial class Order
 
     public DateTime? OrderDate { get; set; }
 
-    public decimal? TotalAmount { get; set; }
+    public decimal? SubTotal { get; set; }
 
     public int UserId { get; set; }
 
@@ -25,9 +25,15 @@ public partial class Order
 
     public int? OrderStatusId { get; set; }
 
+    public decimal? TotalDiscount { get; set; }
+
+    public decimal? FinalAmount { get; set; }
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
 
     public virtual OrderStatus? OrderStatus { get; set; }
+
+    public virtual ICollection<OrderVoucher> OrderVouchers { get; set; } = new List<OrderVoucher>();
 
     public virtual Payment? Payment { get; set; }
 

@@ -6,7 +6,9 @@
         public string PhoneNumber { get; set; } = null!;
         public string ReceiverName { get; set; } = null!;
         public string PaymentMethod { get; set; } = null!;
-        public List<CreateOrderDetailRequest> OrderDetails { get; set; } = new List<CreateOrderDetailRequest>();
+        public List<int> VoucherIds { get; set; } = new List<int>();
+        public List<CreateOrderDetailRequest> OrderDetails
+        { get; set; } = new List<CreateOrderDetailRequest>();
     }
     public class CreateOrderDetailRequest
     {

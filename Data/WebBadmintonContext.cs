@@ -34,6 +34,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<OrderStatus> OrderStatuses { get; set; }
 
+    public virtual DbSet<OrderVoucher> OrderVouchers { get; set; }
+
     public virtual DbSet<Payment> Payments { get; set; }
 
     public virtual DbSet<Product> Products { get; set; }
@@ -151,6 +153,9 @@ public partial class WebBadmintonContext : DbContext
             entity.HasKey(e => e.OrderId).HasName("PK__Orders__C3905BAFA6FD3200");
 
             entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.FinalAmount)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)");
             entity.Property(e => e.OrderDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -160,7 +165,10 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.ShippingAddress).HasMaxLength(255);
             entity.Property(e => e.ShippingFee).HasColumnType("decimal(18, 0)");
-            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.SubTotal).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.TotalDiscount)
+                .HasDefaultValue(0m)
+                .HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UserId).HasColumnName("UserID");
 
             entity.HasOne(d => d.OrderStatus).WithMany(p => p.Orders)
@@ -209,6 +217,26 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.OrderStatusId).HasColumnName("OrderStatusID");
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.StatusName).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<OrderVoucher>(entity =>
+        {
+            entity.HasKey(e => e.OrderVoucherId).HasName("PK__OrderVou__5B3AFEF4EFDF9518");
+
+            entity.Property(e => e.OrderVoucherId).HasColumnName("OrderVoucherID");
+            entity.Property(e => e.AppliedDiscount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.OrderVouchers)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__OrderVouc__Order__63D8CE75");
+
+            entity.HasOne(d => d.Voucher).WithMany(p => p.OrderVouchers)
+                .HasForeignKey(d => d.VoucherId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__OrderVouc__Vouch__64CCF2AE");
         });
 
         modelBuilder.Entity<Payment>(entity =>

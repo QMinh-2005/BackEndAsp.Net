@@ -13,6 +13,7 @@ namespace MyOwnLearning.Repositories
         public async Task<ProductDetail> getProductDetailByIdAsync(int detailId)
         {
             return await _dbset
+                .Include(p => p.Product)
                 .Include(s => s.ProductSerials)
                 .FirstOrDefaultAsync(s => s.DetailId == detailId);
         }
