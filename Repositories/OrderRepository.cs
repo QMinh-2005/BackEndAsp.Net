@@ -48,8 +48,6 @@ namespace MyOwnLearning.Repositories
                         .ThenInclude(d => d.Product)
                  .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.ProductSerials)
-                .Include(o => o.OrderDetails)
-                    .ThenInclude(od => od.ProductSerials)
                 .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
         }
