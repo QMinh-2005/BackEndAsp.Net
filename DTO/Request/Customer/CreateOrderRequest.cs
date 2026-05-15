@@ -12,7 +12,7 @@
     }
     public class CreateOrderDetailRequest
     {
-        public int? DetailId { get; set; }
+        public int DetailId { get; set; }
         public int Quantity { get; set; }
         public bool? IsStringingService { get; set; }
         public string? StringBrand { get; set; }

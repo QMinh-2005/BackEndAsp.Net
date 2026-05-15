@@ -47,7 +47,7 @@ namespace MyOwnLearning.Service
             foreach (var vId in VoucherIds)
             {
                 var voucher = await _voucherRepository.GetVoucherByIdAsync(vId);
-                if (voucher != null || voucher.EndDate < DateTime.UtcNow)
+                if (voucher == null || voucher.EndDate < DateTime.UtcNow)
                 {
                     return Error("Voucher không tồn tại hoặc đã hết hạn.");
                 }

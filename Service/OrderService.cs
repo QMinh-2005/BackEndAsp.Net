@@ -5,6 +5,7 @@ using MyOwnLearning.DTO.Response;
 using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
+using MyOwnLearning.Repositories;
 
 namespace MyOwnLearning.Service
 {
@@ -23,19 +24,22 @@ namespace MyOwnLearning.Service
     {
         private readonly IOrderRepository _orderRepository;
         private readonly ICartRepository _cartRepository;
-        private readonly IVoucherService _voucherService;       // ✅ Inject VoucherService
+        private readonly IVoucherService _voucherService;
+        private readonly IProductDetailRepository _productDetailRepository;
         private readonly WebBadmintonContext _context;
 
         public OrderService(
             IOrderRepository orderRepository,
             ICartRepository cartRepository,
-            IVoucherService voucherService,                     // ✅ Thêm constructor param
+            IVoucherService voucherService,
+            IProductDetailRepository productDetailRepository,
             WebBadmintonContext context)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
             _voucherService = voucherService;
             _context = context;
+            _productDetailRepository = productDetailRepository;
         }
 
         // =====================================================
@@ -142,16 +146,23 @@ namespace MyOwnLearning.Service
 
                 if (request.VoucherIds != null && request.VoucherIds.Any())
                 {
-                    // Tạo tạm danh sách OrderDetail để VoucherService tính discount
-                    // (chưa có OrderDetailId thật nên dùng index tạm)
-                    var tempOrderItems = request.OrderDetails.Select((od, idx) => new OrderDetail
-                    {
-                        OrderDetailId = idx,    // id tạm, chỉ để VoucherService loop
-                        DetailId = od.DetailId,
-                        Quantity = od.Quantity,
-                        UnitPrice = 0       // sẽ được VoucherService lấy từ ProductDetail
-                    }).ToList();
+                    var tempOrderItems = new List<OrderDetail>();
 
+                    foreach (var od in request.OrderDetails)
+                    {
+                        // Cần có _context hoặc Repository để lấy thông tin ProductDetail dựa trên DetailId
+                        var productDetail = await _productDetailRepository.getProductDetailByIdAsync(od.DetailId);
+
+                        if (productDetail == null) throw new Exception($"Không tìm thấy sản phẩm có DetailId = {od.DetailId}");
+
+                        tempOrderItems.Add(new OrderDetail
+                        {
+                            // KHÔNG gán OrderDetailId nữa vì nó chưa tồn tại
+                            DetailId = od.DetailId,
+                            Quantity = od.Quantity,
+                            UnitPrice = productDetail.Price // LẤY GIÁ THẬT TỪ DATABASE VÀO ĐÂY
+                        });
+                    }
                     voucherResult = await _voucherService.ValidateAndCalculateDiscountAsync(
                         userId,
                         request.VoucherIds,

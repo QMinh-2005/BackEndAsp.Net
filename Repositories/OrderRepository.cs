@@ -284,13 +284,13 @@ namespace MyOwnLearning.Repositories
 
                     foreach (var serial in serialsToUpdate)
                     {
-                        serial.Status = ProductSerialStatus.Sold;
+                        serial.Status = ProductSerialStatus.Reserved;
                         orderDetail.ProductSerials.Add(serial);
                     }
                 }
 
                 // --- 5. Tính phí ship ---
-                decimal shippingFee = subTotal < 500000 ? 30000 : 0;
+                decimal shippingFee = subTotal > 500000 ? 30000 : 0;
 
                 // --- 6. Tính Voucher discount ---
                 // ✅ Tổng discount từ tất cả voucher, không vượt quá SubTotal
