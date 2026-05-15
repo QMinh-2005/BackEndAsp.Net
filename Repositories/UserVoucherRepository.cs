@@ -14,5 +14,10 @@ namespace MyOwnLearning.Repositories
         {
             return await _dbset.FirstOrDefaultAsync(uv => uv.UserId == userId && uv.VoucherId == vId);
         }
+        public async Task<bool> IsVoucherAlreadySavedAsync(int userId, int voucherId)
+        {
+            return await _dbset
+                .AnyAsync(uv => uv.UserId == userId && uv.VoucherId == voucherId);
+        }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -23,6 +24,10 @@ namespace MyOwnLearning.Service
         Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems);
         Task UpdateVoucherUsageAsync(int userId, List<int> voucherIds);
         Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId);
+        Task<List<Voucher>> GetAllVouchersForUserAsync();
+        Task<bool> SaveVoucherAsync(int userId, int voucherId);
+        Task<Voucher> CreateVoucherAsync(VoucherCreateRequest request);
+
     }
 
     public class VoucherService : IVoucherService
@@ -150,6 +155,66 @@ namespace MyOwnLearning.Service
                 EndDate = v.EndDate,
                 IsGlobal = v.IsGlobal ?? false
             }).ToList();
+        }
+        public async Task<List<Voucher>> GetAllVouchersForUserAsync()
+        {
+            return await _voucherRepository.GetAllAvailableVouchersAsync();
+        }
+        public async Task<bool> SaveVoucherAsync(int userId, int voucherId)
+        {
+            var voucher = await _voucherRepository.GetVoucherByIdAsync(voucherId);
+            if (voucher == null) throw new Exception("Voucher không tồn tại.");
+
+            // Thường mã Global (toàn hệ thống) không cần lưu vào ví cá nhân
+            if (voucher.IsGlobal == true) throw new Exception("Đây là mã dùng chung, không cần lưu.");
+
+            var isSaved = await _userVoucherRepository.IsVoucherAlreadySavedAsync(userId, voucherId);
+            if (isSaved) throw new Exception("Bạn đã lưu voucher này rồi.");
+
+            var userVoucher = new UserVoucher
+            {
+                UserId = userId,
+                VoucherId = voucherId,
+                CurrentUsageCount = 0,
+                UsedDate = null,
+                SavedDate = DateTime.Now
+            };
+
+            await _userVoucherRepository.AddAsync(userVoucher);
+            await _voucherRepository.SaveChangesAsync();
+            return true;
+        }
+        public async Task<Voucher> CreateVoucherAsync(VoucherCreateRequest request)
+        {
+            var voucher = new Voucher
+            {
+                VoucherCode = request.VoucherCode,
+                Description = request.Description,
+                DiscountValue = request.DiscountValue,
+                IsPercent = request.IsPercent,
+                MaxDiscountAmount = request.MaxDiscountAmount,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                MinOrderValue = request.MinOrderValue,
+                IsGlobal = request.IsGlobal,
+                MaxUsagePerUser = request.MaxUsagePerUser,
+                UsageLimit = request.UsageLimit,
+                UsedCount = 0,
+            };
+
+            if (request.Conditions != null)
+            {
+                voucher.VoucherConditions = request.Conditions.Select(c => new VoucherCondition
+                {
+                    ProductId = c.ProductId,
+                    CategoryId = c.CategoryId,
+                    BrandId = c.BrandId
+                }).ToList();
+            }
+
+            await _voucherRepository.AddAsync(voucher);
+            await _voucherRepository.SaveChangesAsync();
+            return voucher;
         }
     }
 }

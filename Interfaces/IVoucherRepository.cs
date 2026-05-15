@@ -7,5 +7,6 @@ namespace MyOwnLearning.Interfaces
         Task<Voucher?> GetVoucherByCodeAsync(string code);
         Task<Voucher?> GetVoucherByIdAsync(int voucherId);
         Task<List<Voucher>> GetVouchersForDropdownAsync(int userId);
+        Task<List<Voucher>> GetAllAvailableVouchersAsync();
     }
 }
