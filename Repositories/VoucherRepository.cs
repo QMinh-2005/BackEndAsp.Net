@@ -46,5 +46,15 @@ namespace MyOwnLearning.Repositories
                 )
                 .ToListAsync();
         }
+        public async Task<List<Voucher>> GetAllAvailableVouchersAsync()
+        {
+            var now = DateTime.UtcNow;
+            return await _dbset
+                .Where(v =>
+                           (v.EndDate == null || v.EndDate > now) &&
+                           (v.UsageLimit == null || v.UsedCount < v.UsageLimit))
+                .Include(v => v.VoucherConditions)
+                .ToListAsync();
+        }
     }
 }
