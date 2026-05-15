@@ -46,6 +46,8 @@ builder.Services.AddScoped<IProductSerialRepository, ProductSerialRepository>();
 builder.Services.AddScoped<IVoucherRepository, VoucherRepository>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<IUserVoucherRepository, UserVoucherRepository>();
+builder.Services.AddScoped<IStatisticRepository, StatisticRepository>();
+builder.Services.AddScoped<IStatisticService, StatisticService>();
 
 builder.Services.AddOcelot();
 builder.Services.AddAuthentication(options =>
