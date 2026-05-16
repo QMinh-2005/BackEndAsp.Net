@@ -258,7 +258,7 @@ namespace MyOwnLearning.Repositories
                     detail.StockQuantity -= itemRequest.Quantity;
                     detail.Product.SoldQuantity += itemRequest.Quantity;
 
-                    decimal currentPrice = detail.Product.DiscountPrice ?? detail.Price;
+                    decimal currentPrice = detail.Price > 0 ? detail.Price : (detail.Product?.DiscountPrice ?? detail.Product.BasePrice);
 
                     var orderDetail = new OrderDetail
                     {

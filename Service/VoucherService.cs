@@ -24,7 +24,7 @@ namespace MyOwnLearning.Service
         Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems);
         Task UpdateVoucherUsageAsync(int userId, List<int> voucherIds);
         Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId);
-        Task<List<Voucher>> GetAllVouchersForUserAsync();
+        Task<List<VoucherResponse>> GetAllVouchersForUserAsync();
         Task<bool> SaveVoucherAsync(int userId, int voucherId);
         Task<Voucher> CreateVoucherAsync(VoucherCreateRequest request);
 
@@ -88,7 +88,9 @@ namespace MyOwnLearning.Service
                     eligibleItems = new List<OrderDetail>();
                     foreach (var item in orderItems)
                     {
-                        var productDetail = await _productDetailRepository.getProductDetailByIdAsync(item.OrderDetailId);
+                        if (!item.DetailId.HasValue) continue;
+                        var productDetail = await _productDetailRepository.getProductDetailByIdAsync(item.DetailId.Value);
+                        if (productDetail == null) continue;
                         bool match = voucher.VoucherConditions.Any(c =>
                             (c.ProductId == null || c.ProductId == productDetail.ProductId) &&
                             (c.CategoryId == null || c.CategoryId == productDetail.Product.CategoryId) &&
@@ -156,9 +158,23 @@ namespace MyOwnLearning.Service
                 IsGlobal = v.IsGlobal ?? false
             }).ToList();
         }
-        public async Task<List<Voucher>> GetAllVouchersForUserAsync()
+        public async Task<List<VoucherResponse>> GetAllVouchersForUserAsync()
         {
-            return await _voucherRepository.GetAllAvailableVouchersAsync();
+            var voucher = await _voucherRepository.GetAllAvailableVouchersAsync();
+            return voucher.Select(v => new VoucherResponse
+            {
+                VoucherId = v.VoucherId,
+                VoucherCode = v.VoucherCode,
+                Description = v.Description,
+                DiscountValue = v.DiscountValue,
+                IsPercent = v.IsPercent,
+                MaxDiscountAmount = v.MaxDiscountAmount,
+                MinOrderValue = v.MinOrderValue ?? 0,
+                StartDate = v.StartDate,
+                EndDate = v.EndDate,
+                MaxUsagePerUser = v.MaxUsagePerUser,
+                IsGlobal = v.IsGlobal ?? false
+            }).ToList();
         }
         public async Task<bool> SaveVoucherAsync(int userId, int voucherId)
         {
