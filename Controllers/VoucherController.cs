@@ -22,19 +22,33 @@ namespace MyOwnLearning.Controllers
         [HttpGet("my-voucher")]
         public async Task<IActionResult> GetAvailableVouchers()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-                return Unauthorized(new { Message = "Vui lòng đăng nhập." });
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                    return Unauthorized(new { Message = "Vui lòng đăng nhập." });
 
-            var result = await _voucherService.GetAvailableVouchersForUserAsync(userId);
-            return Ok(result);
+                var result = await _voucherService.GetAvailableVouchersForUserAsync(userId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
         // 1. Dành cho người dùng: Xem tất cả voucher đang khả dụng để lưu
         [HttpGet("all-available")]
         public async Task<IActionResult> GetAllAvailable()
         {
-            var vouchers = await _voucherService.GetAllVouchersForUserAsync();
-            return Ok(vouchers);
+            try
+            {
+                var vouchers = await _voucherService.GetAllVouchersForUserAsync();
+                return Ok(new { message = "Lấy thành công tât cả các Voucher", data = vouchers });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("save/{voucherId}")]
@@ -43,7 +57,9 @@ namespace MyOwnLearning.Controllers
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                    return Unauthorized(new { Message = "Vui lòng đăng nhập." });
                 await _voucherService.SaveVoucherAsync(userId, voucherId);
                 return Ok(new { message = "Lưu voucher thành công!" });
             }
