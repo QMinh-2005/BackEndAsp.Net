@@ -13,5 +13,7 @@ public partial class ProductImage
 
     public int? DisplayOrder { get; set; }
 
+    public bool? IsMain { get; set; }
+
     public virtual Product? Product { get; set; }
 }

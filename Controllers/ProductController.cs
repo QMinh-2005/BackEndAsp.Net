@@ -323,5 +323,83 @@ namespace MyOwnLearning.Controllers
                 return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
             }
         }
+
+        //Quản lý ảnh
+        [HttpGet("{productId}/management-images")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetProductImages(int productId)
+        {
+            try
+            {
+                var result = await _productService.GetProductImagesAsync(productId);
+                return Ok(new { Message = "Thành công", Data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        [HttpPost("{productId}/management-images")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AddProductImage(int productId, [FromBody] CreateProductImageRequest request)
+        {
+            try
+            {
+                var newImage = await _productService.AddProductImageAsync(productId, request.ImageUrl, request.IsMain);
+                return Ok(new { Message = "Thêm ảnh vào bộ sưu tập thành công!", Data = newImage });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        [HttpPut("{productId}/management-images/set-main/{imageId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> SetMainImage(int productId, int imageId)
+        {
+            try
+            {
+                var success = await _productService.SetMainImageAsync(productId, imageId);
+                if (!success) return NotFound(new { Message = "Không tìm thấy ảnh hoặc sản phẩm phù hợp." });
+                return Ok(new { Message = "Thay đổi ảnh đại diện thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        [HttpPut("management-images/reOrder")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ReorderImages([FromBody] List<UpdateImageOrderRequest> request)
+        {
+            try
+            {
+                await _productService.UpdateImagesOrderAsync(request);
+                return Ok(new { Message = "Cập nhật thứ tự hiển thị ảnh thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        [HttpDelete("management-images/{imageId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteProductImage(int imageId)
+        {
+            try
+            {
+                var success = await _productService.DeleteImageAsync(imageId);
+                if (!success) return NotFound(new { Message = "Không tìm thấy hình ảnh cần xóa." });
+                return Ok(new { Message = "Xóa hình ảnh khỏi bộ sưu tập thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi khi xóa ảnh: " + ex.Message });
+            }
+        }
     }
 }
