@@ -166,7 +166,8 @@ namespace MyOwnLearning.Service
                     voucherResult = await _voucherService.ValidateAndCalculateDiscountAsync(
                         userId,
                         request.VoucherIds,
-                        tempOrderItems
+                        tempOrderItems,
+                        request.PaymentMethod
                     );
 
                     if (!voucherResult.IsValid)

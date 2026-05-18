@@ -15,12 +15,14 @@ namespace MyOwnLearning.Repositories
         {
             return await _dbset
                 .Include(vc => vc.VoucherConditions)
+                .Include(v => v.VoucherPaymentMethods)
                 .FirstOrDefaultAsync(v => v.VoucherCode == code);
         }
         public async Task<Voucher?> GetVoucherByIdAsync(int voucherId)
         {
             return await _dbset
                 .Include(vc => vc.VoucherConditions)
+                .Include(v => v.VoucherPaymentMethods)
                 .FirstOrDefaultAsync(v => v.VoucherId == voucherId);
         }
         public async Task<List<Voucher>> GetVouchersForDropdownAsync(int userId)
@@ -29,7 +31,7 @@ namespace MyOwnLearning.Repositories
 
             return await _dbset
                 // 1. Chỉ lấy mã đang trong thời gian hiệu lực
-                .Where(v => v.StartDate <= now && v.EndDate >= now)
+                .Where(v => v.StartDate <= now && v.EndDate >= now && v.IsActive == true)
                 // 2. Chỉ lấy mã hệ thống còn lượt
                 .Where(v => v.UsageLimit == null || v.UsedCount < v.UsageLimit)
                 // 3. Lọc mã Global HOẶC mã trong ví của User
@@ -52,7 +54,8 @@ namespace MyOwnLearning.Repositories
             return await _dbset
                 .Where(v =>
                            (v.EndDate == null || v.EndDate > now) &&
-                           (v.UsageLimit == null || v.UsedCount < v.UsageLimit))
+                           (v.UsageLimit == null || v.UsedCount < v.UsageLimit) && v.IsActive == true)
+                .Include(v => v.VoucherPaymentMethods)
                 .Include(v => v.VoucherConditions)
                 .ToListAsync();
         }

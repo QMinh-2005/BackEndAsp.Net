@@ -16,6 +16,7 @@
 
         // Danh sách điều kiện nếu có (Sản phẩm hoặc Danh mục cụ thể)
         public List<VoucherConditionRequest>? Conditions { get; set; }
+        public List<string>? AllowedPaymentMethods { get; set; }
     }
     public class VoucherConditionRequest
     {

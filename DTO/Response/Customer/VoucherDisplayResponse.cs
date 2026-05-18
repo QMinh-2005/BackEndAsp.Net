@@ -11,5 +11,6 @@
         public decimal MinOrderValue { get; set; }
         public DateTime? EndDate { get; set; }
         public bool IsGlobal { get; set; }
+        public List<string> AllowedPaymentMethods { get; set; } = new List<string>();
     }
 }
