@@ -1,9 +1,12 @@
 ﻿using System.Security.Claims;
 using Azure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
+using MyOwnLearning.Interfaces;
+using MyOwnLearning.Models;
 using MyOwnLearning.Service;
 
 namespace MyOwnLearning.Controllers
@@ -13,9 +16,14 @@ namespace MyOwnLearning.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
-        public OrderController(IOrderService orderService)
+        private readonly IProductDetailRepository _productDetailRepository;
+        private readonly IVoucherService _voucherService;
+
+        public OrderController(IOrderService orderService, IProductDetailRepository productDetailRepository, IVoucherService voucherService)
         {
             _orderService = orderService;
+            _productDetailRepository = productDetailRepository;
+            _voucherService = voucherService;
         }
         [HttpGet("my-orders")]
         public async Task<IActionResult> GetMyOrder()
@@ -44,6 +52,64 @@ namespace MyOwnLearning.Controllers
                 TotalPages = totalPages
             });
         }
+
+        [HttpPost("preview")]
+        [Authorize]
+        public async Task<IActionResult> PreviewOrder([FromBody] CreateOrderRequest request)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+
+                // Tạo list giả lập để truyền vào VoucherService
+                var tempOrderItems = new List<OrderDetail>();
+                decimal subTotal = 0;
+
+                foreach (var od in request.OrderDetails)
+                {
+                    var productDetail = await _productDetailRepository.getProductDetailByIdAsync(od.DetailId);
+                    if (productDetail == null) continue;
+
+                    // Tính giá ưu tiên giống hệt trong OrderService
+                    decimal currentPrice = productDetail.Price > 0
+                        ? productDetail.Price
+                        : (productDetail.Product?.DiscountPrice ?? productDetail.Product?.BasePrice ?? 0);
+
+                    tempOrderItems.Add(new OrderDetail
+                    {
+                        DetailId = od.DetailId,
+                        Quantity = od.Quantity,
+                        UnitPrice = currentPrice
+                    });
+
+                    subTotal += currentPrice * od.Quantity;
+                }
+
+                // Gọi VoucherService để kiểm tra và tính toán giảm giá
+                var voucherResult = await _voucherService.ValidateAndCalculateDiscountAsync(
+                    userId,
+                    request.VoucherIds ?? new List<int>(),
+                    tempOrderItems,
+                    request.PaymentMethod
+                );
+
+                // Trả về cho FE tổng quát số tiền
+                return Ok(new
+                {
+                    SubTotal = subTotal,
+                    TotalDiscount = voucherResult.TotalDiscount,
+                    FinalAmount = subTotal - voucherResult.TotalDiscount,
+                    IsValid = voucherResult.IsValid,
+                    ErrorMessage = voucherResult.ErrorMessage,
+                    AppliedVouchers = voucherResult.AppliedVoucherDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
         {

@@ -24,7 +24,7 @@ namespace MyOwnLearning.Service
     {
         Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems, string paymentMethod);
         Task UpdateVoucherUsageAsync(int userId, List<int> voucherIds);
-        Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId);
+        Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId, string paymentMethod);
         Task<List<VoucherResponse>> GetAllVouchersForUserAsync();
         Task<bool> SaveVoucherAsync(int userId, int voucherId);
         Task<Voucher> CreateVoucherAsync(VoucherCreateRequest request);
@@ -156,11 +156,11 @@ namespace MyOwnLearning.Service
             await _voucherRepository.SaveChangesAsync();
         }
         private VoucherValidationResult Error(string message) => new() { IsValid = false, ErrorMessage = message };
-        public async Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId)
+        public async Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId, string paymentMethod)
         {
             var vouchers = await _voucherRepository.GetVouchersForDropdownAsync(userId);
 
-            return vouchers.Select(v => new VoucherDisplayResponse
+            var result = vouchers.Select(v => new VoucherDisplayResponse
             {
                 VoucherId = v.VoucherId,
                 VoucherCode = v.VoucherCode,
@@ -173,6 +173,11 @@ namespace MyOwnLearning.Service
                 IsGlobal = v.IsGlobal ?? false,
                 AllowedPaymentMethods = v.VoucherPaymentMethods != null ? v.VoucherPaymentMethods.Select(pm => pm.PaymentMethod).ToList() : new List<string>()
             }).ToList();
+            if (!string.IsNullOrEmpty(paymentMethod))
+            {
+                result = result.Where(v => v.AllowedPaymentMethods.Count == 0 || v.AllowedPaymentMethods.Contains(paymentMethod)).ToList();
+            }
+            return result;
         }
         public async Task<List<VoucherResponse>> GetAllVouchersForUserAsync()
         {

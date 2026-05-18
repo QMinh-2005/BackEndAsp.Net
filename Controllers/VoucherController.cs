@@ -20,7 +20,7 @@ namespace MyOwnLearning.Controllers
 
         // Gọi API này khi người dùng click vào Dropdown chọn Voucher ở trang Thanh toán
         [HttpGet("my-voucher")]
-        public async Task<IActionResult> GetAvailableVouchers()
+        public async Task<IActionResult> GetAvailableVouchers([FromQuery] string? paymentMethod)
         {
             try
             {
@@ -28,7 +28,7 @@ namespace MyOwnLearning.Controllers
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
                     return Unauthorized(new { Message = "Vui lòng đăng nhập." });
 
-                var result = await _voucherService.GetAvailableVouchersForUserAsync(userId);
+                var result = await _voucherService.GetAvailableVouchersForUserAsync(userId, paymentMethod);
                 return Ok(result);
             }
             catch (Exception ex)
