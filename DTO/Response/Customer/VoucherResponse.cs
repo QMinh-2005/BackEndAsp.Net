@@ -23,5 +23,6 @@
         public bool? IsGlobal { get; set; }
 
         public int MaxUsagePerUser { get; set; }
+        public List<string> AllowedPaymentMethods { get; set; } = new List<string>();
     }
 }

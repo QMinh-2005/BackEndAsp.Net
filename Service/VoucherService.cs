@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
@@ -21,7 +22,7 @@ namespace MyOwnLearning.Service
     }
     public interface IVoucherService
     {
-        Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems);
+        Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems, string paymentMethod);
         Task UpdateVoucherUsageAsync(int userId, List<int> voucherIds);
         Task<List<VoucherDisplayResponse>> GetAvailableVouchersForUserAsync(int userId);
         Task<List<VoucherResponse>> GetAllVouchersForUserAsync();
@@ -44,7 +45,16 @@ namespace MyOwnLearning.Service
             _productDetailRepository = productDetailRepository;
             _orderRepository = orderRepository;
         }
-        public async Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems)
+        private bool IsValidPaymentMethodForVoucher(Voucher voucher, string paymentMethod)
+        {
+            if (voucher.VoucherPaymentMethods == null || !voucher.VoucherPaymentMethods.Any())
+            {
+                return true;
+            }
+            var allowPaymentMethod = voucher.VoucherPaymentMethods.Select(x => x.PaymentMethod).ToList();
+            return allowPaymentMethod.Contains(paymentMethod);
+        }
+        public async Task<VoucherValidationResult> ValidateAndCalculateDiscountAsync(int userId, List<int> VoucherIds, List<OrderDetail> orderItems, string paymentMethod)
         {
             var result = new VoucherValidationResult { IsValid = true };
             decimal totalOrderDiscount = 0;
@@ -52,7 +62,7 @@ namespace MyOwnLearning.Service
             foreach (var vId in VoucherIds)
             {
                 var voucher = await _voucherRepository.GetVoucherByIdAsync(vId);
-                if (voucher == null || voucher.EndDate < DateTime.UtcNow)
+                if (voucher == null || voucher.IsActive == false || voucher.EndDate < DateTime.UtcNow)
                 {
                     return Error("Voucher không tồn tại hoặc đã hết hạn.");
                 }
@@ -60,7 +70,12 @@ namespace MyOwnLearning.Service
                 {
                     return Error($"Mã {voucher.VoucherCode} đã hết lượt sử dụng.");
                 }
-
+                if (!IsValidPaymentMethodForVoucher(voucher, paymentMethod))
+                {
+                    var allowedMethods = voucher.VoucherPaymentMethods.Select(pm => pm.PaymentMethod);
+                    string methodsStr = string.Join(" hoặc ", allowedMethods);
+                    return Error($"Mã {voucher.VoucherCode} chỉ áp dụng khi thanh toán qua: {methodsStr}.");
+                }
                 if (voucher.IsGlobal == true)
                 {
                     // Mã Global: Đếm trực tiếp trong lịch sử đơn hàng thành công
@@ -155,7 +170,8 @@ namespace MyOwnLearning.Service
                 MaxDiscountAmount = v.MaxDiscountAmount,
                 MinOrderValue = v.MinOrderValue ?? 0,
                 EndDate = v.EndDate,
-                IsGlobal = v.IsGlobal ?? false
+                IsGlobal = v.IsGlobal ?? false,
+                AllowedPaymentMethods = v.VoucherPaymentMethods != null ? v.VoucherPaymentMethods.Select(pm => pm.PaymentMethod).ToList() : new List<string>()
             }).ToList();
         }
         public async Task<List<VoucherResponse>> GetAllVouchersForUserAsync()
@@ -173,7 +189,10 @@ namespace MyOwnLearning.Service
                 StartDate = v.StartDate,
                 EndDate = v.EndDate,
                 MaxUsagePerUser = v.MaxUsagePerUser,
-                IsGlobal = v.IsGlobal ?? false
+                IsGlobal = v.IsGlobal ?? false,
+                AllowedPaymentMethods = v.VoucherPaymentMethods != null
+                          ? v.VoucherPaymentMethods.Select(pm => pm.PaymentMethod).ToList()
+                          : new List<string>()
             }).ToList();
         }
         public async Task<bool> SaveVoucherAsync(int userId, int voucherId)
@@ -216,6 +235,7 @@ namespace MyOwnLearning.Service
                 MaxUsagePerUser = request.MaxUsagePerUser,
                 UsageLimit = request.UsageLimit,
                 UsedCount = 0,
+                IsActive = true,
             };
 
             if (request.Conditions != null)
@@ -227,7 +247,13 @@ namespace MyOwnLearning.Service
                     BrandId = c.BrandId
                 }).ToList();
             }
-
+            if (request.AllowedPaymentMethods != null)
+            {
+                voucher.VoucherPaymentMethods = request.AllowedPaymentMethods.Select(pm => new VoucherPaymentMethod
+                {
+                    PaymentMethod = pm
+                }).ToList();
+            }
             await _voucherRepository.AddAsync(voucher);
             await _voucherRepository.SaveChangesAsync();
             return voucher;
