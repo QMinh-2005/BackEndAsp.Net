@@ -373,11 +373,11 @@ namespace MyOwnLearning.Controllers
 
         [HttpPut("management-images/reOrder")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> ReorderImages([FromBody] List<UpdateImageOrderRequest> request)
+        public async Task<IActionResult> ReorderImages(int productId, [FromBody] List<UpdateImageOrderRequest> request)
         {
             try
             {
-                await _productService.UpdateImagesOrderAsync(request);
+                await _productService.UpdateImagesOrderAsync(productId, request);
                 return Ok(new { Message = "Cập nhật thứ tự hiển thị ảnh thành công!" });
             }
             catch (Exception ex)

@@ -40,7 +40,7 @@ namespace MyOwnLearning.Service
         Task<List<ProductImageResponse>> GetProductImagesAsync(int productId);
         Task<ProductImageResponse> AddProductImageAsync(int productId, string imageUrl, bool isMain);
         Task<bool> SetMainImageAsync(int productId, int imageId);
-        Task<bool> UpdateImagesOrderAsync(List<UpdateImageOrderRequest> requests);
+        Task<bool> UpdateImagesOrderAsync(int productId, List<UpdateImageOrderRequest> requests);
         Task<bool> DeleteImageAsync(int imageId);
     }
     public class ProductService : IProductService
@@ -670,48 +670,53 @@ namespace MyOwnLearning.Service
             return true;
         }
 
-        public async Task<bool> UpdateImagesOrderAsync(List<UpdateImageOrderRequest> requests)
+        public async Task<bool> UpdateImagesOrderAsync(int productId, List<UpdateImageOrderRequest> requests)
         {
+            // 1. Kiểm tra đầu vào cơ bản
             if (requests == null || !requests.Any()) return false;
 
-            // Lấy thử 1 request để xác định ProductId của nhóm ảnh này
-            var firstRequest = requests.FirstOrDefault();
-            var sampleImg = await _productImageRepository.GetByIdAsync(firstRequest.ImageId);
-            if (sampleImg == null) return false;
-            int productId = (int)sampleImg.ProductId;
+            // 2. BƯỚC BẢO MẬT: Kiểm tra xem Frontend có gửi trùng số thứ tự không?
+            var hasDuplicateOrders = requests.GroupBy(x => x.DisplayOrder).Any(g => g.Count() > 1);
+            if (hasDuplicateOrders)
+            {
+                throw new Exception("Dữ liệu vị trí từ giao diện bị trùng lặp, vui lòng tải lại trang.");
+            }
 
-            // Lấy toàn bộ ảnh hiện tại trong DB của sản phẩm để đảm bảo kiểm soát tốt dữ liệu
+            // 3. Lấy toàn bộ ảnh của sản phẩm này từ Database
             var currentImages = await _productImageRepository.GetByProductIdAsync(productId);
+            if (!currentImages.Any()) return false;
+
             string? newMainImageUrl = null;
 
+            // 4. Quét qua ảnh trong DB và gán giá trị mới từ Request
             foreach (var img in currentImages)
             {
-                // Tìm xem ảnh này có nằm trong danh sách thay đổi thứ tự không
-                var req = requests.FirstOrDefault(r => r.ImageId == img.ImageId);
-                if (req != null)
-                {
-                    img.DisplayOrder = req.DisplayOrder;
+                // Tìm xem ảnh này được Frontend chỉ định đứng thứ mấy
+                var newOrderData = requests.FirstOrDefault(r => r.ImageId == img.ImageId);
 
-                    // Nếu vị trí mới được cập nhật là 1 -> Đặt làm ảnh chính
-                    if (req.DisplayOrder == 1)
+                if (newOrderData != null)
+                {
+                    img.DisplayOrder = newOrderData.DisplayOrder;
+
+                    // QUY TẮC THÉP: Chỉ ảnh ở vị trí số 1 mới được làm ảnh chính
+                    if (newOrderData.DisplayOrder == 1)
                     {
                         img.IsMain = true;
                         newMainImageUrl = img.ImageUrl;
                     }
                     else
                     {
-                        img.IsMain = false; // Bất kỳ vị trí nào khác 1 đều không phải ảnh chính
+                        // Tất cả ảnh không nằm ở vị trí số 1 đều bị tước quyền làm ảnh chính
+                        img.IsMain = false;
                     }
                 }
-
-                await _productImageRepository.UpdateAsync(img);
             }
-
-            // Nếu tìm thấy ảnh ở vị trí số 1 mới, đồng bộ ngược lại trường MainImageUrl của Product
+            await _productImageRepository.UpdateRangeAsync(currentImages);
+            // 5. Đồng bộ cập nhật lại MainImageUrl cho bảng Product
             if (!string.IsNullOrEmpty(newMainImageUrl))
             {
                 var product = await _productRepository.GetByIdAsync(productId);
-                if (product != null)
+                if (product != null && product.MainImageUrl != newMainImageUrl)
                 {
                     product.MainImageUrl = newMainImageUrl;
                     await _productRepository.UpdateAsync(product);
@@ -723,15 +728,27 @@ namespace MyOwnLearning.Service
 
         public async Task<bool> DeleteImageAsync(int imageId)
         {
-            var img = await _productImageRepository.GetByIdAsync(imageId);
-            if (img == null) return false;
+            var imgToDelete = await _productImageRepository.GetByIdAsync(imageId);
+            if (imgToDelete == null) return false;
 
-            if (img.IsMain == true)
+            if (imgToDelete.IsMain == true)
             {
-                throw new Exception("Không thể xóa ảnh đang được đặt làm ảnh đại diện chính.");
+                throw new Exception("Không thể xóa ảnh đang được đặt làm ảnh đại diện chính. Vui lòng chọn ảnh khác làm đại diện trước.");
             }
 
+            int deletedOrder = (int)imgToDelete.DisplayOrder;
+            int productId = (int)imgToDelete.ProductId;
+
+            // Xóa ảnh
             await _productImageRepository.DeleteAsync(imageId);
+
+            // Lấy các ảnh còn lại và dồn thứ tự lên (Shift Up)
+            var remainingImages = await _productImageRepository.GetByProductIdAsync(productId);
+            foreach (var img in remainingImages.Where(i => i.DisplayOrder > deletedOrder))
+            {
+                img.DisplayOrder -= 1;
+            }
+            await _productImageRepository.UpdateRangeAsync(remainingImages.Where(i => i.DisplayOrder >= deletedOrder));
             return true;
         }
     }
