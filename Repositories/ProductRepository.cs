@@ -14,7 +14,7 @@ namespace MyOwnLearning.Repositories
         }
         public virtual async Task<(List<Product> products, int TotalCount)> GetAll()
         {
-            var query = _dbset.AsQueryable();
+            var query = _dbset.Include(c => c.Category).Include(b => b.Brand).AsQueryable();
             var totalCount = await query.CountAsync();
             var products = await query.OrderByDescending(x => x.ProductId).ToListAsync();
             return (products, totalCount);

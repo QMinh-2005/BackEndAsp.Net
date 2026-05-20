@@ -30,6 +30,7 @@ namespace MyOwnLearning.Repositories
             var now = DateTime.Now;
 
             return await _dbset
+                .Include(v => v.VoucherPaymentMethods)
                 // 1. Chỉ lấy mã đang trong thời gian hiệu lực
                 .Where(v => v.StartDate <= now && v.EndDate >= now && v.IsActive == true)
                 // 2. Chỉ lấy mã hệ thống còn lượt
