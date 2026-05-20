@@ -19,6 +19,12 @@ namespace MyOwnLearning.Repositories
             var products = await query.OrderByDescending(x => x.ProductId).ToListAsync();
             return (products, totalCount);
         }
+        public async Task<bool> IsExistProduct(string productName)
+        {
+            var pro = await _dbset.FirstOrDefaultAsync(p => p.ProductName == productName);
+            if (pro != null) { return true; }
+            return false;
+        }
         public virtual async Task<(List<Product> products, int TotalCount)> SearchAsync(string? categorySlug, string? brandSlug, string? keyword, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize)
         {
             var query = _dbset.AsQueryable();
