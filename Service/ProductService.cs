@@ -323,7 +323,11 @@ namespace MyOwnLearning.Service
                             // Cột 2 là Tên Sản Phẩm
                             var productName = worksheet.Cells[row, 1].Text.Trim();
                             if (string.IsNullOrEmpty(productName)) continue;
-
+                            if (await _productRepository.IsExistProduct(productName))
+                            {
+                                errorMessages.Add($"Sản phẩm với tên {productName} này đã tồn tại rồi");
+                                continue;
+                            }
                             // Cột 3 là Tên Danh Mục
                             string categoryName = worksheet.Cells[row, 2].Text.Trim();
                             // Cột 4 là Tên Thương Hiệu
