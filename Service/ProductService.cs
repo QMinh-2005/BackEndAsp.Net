@@ -4,9 +4,11 @@ using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Enums;
+using MyOwnLearning.Helpers;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
-using MyOwnLearning.Helpers;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 
 namespace MyOwnLearning.Service
 {
@@ -23,6 +25,8 @@ namespace MyOwnLearning.Service
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
         Task<bool> DeleteProductAsync(int productId);
+        Task<string> ImportBasicProductsFromExcelAsync(IFormFile file);
+        Task<byte[]> ExportProductsToExcelAsync();
 
 
         //Trang 2
@@ -289,6 +293,144 @@ namespace MyOwnLearning.Service
                 throw new Exception("Không thể xóa sản phẩm vì đã có đơn hàng liên quan. Vui lòng kiểm tra lại.");
             await _productRepository.DeleteAsync(productId);
             return true;
+        }
+
+        public async Task<string> ImportBasicProductsFromExcelAsync(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("File không được để trống.");
+
+            if (!file.FileName.EndsWith(".xlsx"))
+                throw new ArgumentException("Chỉ hỗ trợ file định dạng .xlsx");
+
+            var productsToSave = new List<Product>();
+            var errorMessages = new List<string>(); // Danh sách chứa các lỗi để thông báo
+
+            using (var stream = new MemoryStream())
+            {
+                await file.CopyToAsync(stream);
+                using (var package = new ExcelPackage(stream))
+                {
+                    var worksheet = package.Workbook.Worksheets[0];
+                    int rowCount = worksheet.Dimension.Rows;
+
+                    // Bắt đầu đọc từ dòng 2 (Vì dòng 1 là Header theo đúng file Export của bạn)
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        try
+                        {
+                            // Cột 1 là Product ID -> Bỏ qua khi tạo mới
+                            // Cột 2 là Tên Sản Phẩm
+                            var productName = worksheet.Cells[row, 1].Text.Trim();
+                            if (string.IsNullOrEmpty(productName)) continue;
+
+                            // Cột 3 là Tên Danh Mục
+                            string categoryName = worksheet.Cells[row, 2].Text.Trim();
+                            // Cột 4 là Tên Thương Hiệu
+                            string brandName = worksheet.Cells[row, 3].Text.Trim();
+
+                            // Dò ID
+                            var categoryId = await _categoryRepository.GetIdByCategoryName(categoryName);
+                            var brandId = await _brandRepository.GetIdByBrandName(brandName);
+
+                            if (!categoryId.HasValue)
+                            {
+                                errorMessages.Add($"Dòng {row}: Không tìm thấy danh mục '{categoryName}'");
+                                continue; // Lỗi thì bỏ qua dòng này, chạy tiếp dòng sau
+                            }
+                            if (!brandId.HasValue)
+                            {
+                                errorMessages.Add($"Dòng {row}: Không tìm thấy thương hiệu '{brandName}'");
+                                continue;
+                            }
+
+                            var product = new Product
+                            {
+                                ProductName = productName,
+                                CategoryId = categoryId.Value,
+                                BrandId = brandId.Value,
+                                Description = worksheet.Cells[row, 4].Text.Trim(), // Cột 5: Mô Tả
+                                BasePrice = decimal.TryParse(worksheet.Cells[row, 5].Text, out var bp) ? bp : 0, // Cột 6: Giá cơ bản
+                                DiscountPrice = decimal.TryParse(worksheet.Cells[row, 6].Text, out var dpPrice) ? dpPrice : (decimal?)null, // Cột 7: Giá giảm
+                                MainImageUrl = worksheet.Cells[row, 7].Text.Trim(), // Cột 8: Link ảnh
+                                                                                    // Cột 9: Đã bán -> Bỏ qua (Set = 0 cho SP mới)
+                                                                                    // Cột 10: Slug -> Tự động sinh
+                                Slug = GenerateSlug("", productName),
+                                SoldQuantity = 0
+                            };
+
+                            productsToSave.Add(product);
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMessages.Add($"Dòng {row}: Lỗi định dạng dữ liệu ({ex.Message})");
+                        }
+                    }
+                }
+            }
+
+            // Tiến hành lưu các sản phẩm ĐÚNG vào DB
+            if (productsToSave.Any())
+            {
+                await _productRepository.AddRangeAsync(productsToSave);
+            }
+
+            // TỔNG HỢP CÂU TRẢ LỜI CHO FE
+            string resultMessage = $"Đã import thành công {productsToSave.Count} sản phẩm.";
+            if (errorMessages.Any())
+            {
+                resultMessage += $"\nTuy nhiên, có {errorMessages.Count} sản phẩm bị bỏ qua do lỗi:\n";
+                resultMessage += string.Join("\n", errorMessages);
+            }
+
+            return resultMessage;
+        }
+
+        public async Task<byte[]> ExportProductsToExcelAsync()
+        {
+            // Lấy toàn bộ sản phẩm (Nên include Category và Brand để lấy tên)
+            var (products, _) = await _productRepository.GetAll();
+
+            using (var package = new ExcelPackage())
+            {
+                var worksheet = package.Workbook.Worksheets.Add("Products_Export");
+
+                // Ghi Tiêu đề (Headers)
+                string[] headers = {
+            "Product ID", "Tên Sản Phẩm","Tên Danh Mục", "Tên Thương Hiệu", "Mô Tả",
+            "Giá Cơ Bản", "Giá Giảm",
+             "Link Ảnh Chính",
+            "Đã Bán", "Slug"
+        };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cells[1, i + 1].Value = headers[i];
+                    worksheet.Cells[1, i + 1].Style.Font.Bold = true;
+                    worksheet.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    worksheet.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightBlue);
+                }
+
+                // Đổ dữ liệu từ Database ra Excel
+                int row = 2;
+                foreach (var p in products)
+                {
+                    worksheet.Cells[row, 1].Value = p.ProductId;
+                    worksheet.Cells[row, 2].Value = p.ProductName;
+                    worksheet.Cells[row, 3].Value = p.Category?.CategoryName;
+                    worksheet.Cells[row, 4].Value = p.Brand?.BrandName;
+                    worksheet.Cells[row, 5].Value = p.Description;
+                    worksheet.Cells[row, 6].Value = p.BasePrice;
+                    worksheet.Cells[row, 7].Value = p.DiscountPrice;
+                    worksheet.Cells[row, 8].Value = p.MainImageUrl;
+                    worksheet.Cells[row, 9].Value = p.SoldQuantity;
+                    worksheet.Cells[row, 10].Value = p.Slug;
+                    row++;
+                }
+
+                worksheet.Cells.AutoFitColumns(); // Tự động căn chỉnh độ rộng cột
+                return package.GetAsByteArray();
+            }
         }
         public async Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize)
         {

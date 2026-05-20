@@ -204,6 +204,56 @@ namespace MyOwnLearning.Controllers
             }
         }
 
+
+        // =====================================================================
+        // API IMPORT SẢN PHẨM BẰNG EXCEL
+        // =====================================================================
+        [HttpPost("admin/import-excel")]
+        [Authorize(Roles = "Admin")] // Bắt buộc phải là Admin
+        [Consumes("multipart/form-data")] // Chỉ định API này nhận File
+        public async Task<IActionResult> ImportProductsFromExcel(IFormFile file)
+        {
+            try
+            {
+                var result = await _productService.ImportBasicProductsFromExcelAsync(file);
+                return Ok(new { message = result });
+            }
+            catch (ArgumentException ex)
+            {
+                // Bắt các lỗi do file trống, sai định dạng
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Bắt các lỗi trong quá trình đọc data (thiếu ID, sai kiểu...)
+                return StatusCode(500, new { message = "Lỗi hệ thống khi Import: " + ex.Message });
+            }
+        }
+
+        // =====================================================================
+        // API EXPORT DANH SÁCH SẢN PHẨM RA EXCEL
+        // =====================================================================
+        [HttpGet("admin/export-excel")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ExportProductsToExcel()
+        {
+            try
+            {
+                var excelBytes = await _productService.ExportProductsToExcelAsync();
+
+                // Định dạng MIME type chuẩn cho file .xlsx
+                string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                string fileName = $"Products_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                // Trả về file cho Frontend tải xuống
+                return File(excelBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống khi Export: " + ex.Message });
+            }
+        }
+
         [HttpGet("{productId}/management-details")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetProductDetailsById(int productId, int page = 1, int pagesize = 10)

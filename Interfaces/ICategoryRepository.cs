@@ -4,6 +4,6 @@ namespace MyOwnLearning.Interfaces
 {
     public interface ICategoryRepository : IRepository<Category>
     {
-
+        Task<int?> GetIdByCategoryName(string categoryName);
     }
 }

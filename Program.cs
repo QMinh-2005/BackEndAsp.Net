@@ -1,21 +1,22 @@
-﻿using Mapster;
+﻿using System.Text;
+using Mapster;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using MyOwnLearning.Data;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 using MyOwnLearning.Repositories;
 using MyOwnLearning.Service;
-using Scalar.AspNetCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using MyOwnLearning.DTO.Response.Admin;
 using Ocelot.DependencyInjection;
+using OfficeOpenXml;
+using Scalar.AspNetCore;
 
 var config = TypeAdapterConfig<User, UserResponse>.NewConfig()
     .Map(dest => dest.Roles, src => src.Roles.Select(r => r.RoleName))
     .Config;
-
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
 var builder = WebApplication.CreateBuilder(args);
 
