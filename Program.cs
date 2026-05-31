@@ -51,7 +51,6 @@ builder.Services.AddScoped<IStatisticRepository, StatisticRepository>();
 builder.Services.AddScoped<IStatisticService, StatisticService>();
 builder.Services.AddScoped<IProductImageRepository, ProductImageRepository>();
 
-
 builder.Services.AddOcelot();
 builder.Services.AddAuthentication(options =>
 {

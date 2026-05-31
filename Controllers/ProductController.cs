@@ -332,6 +332,46 @@ namespace MyOwnLearning.Controllers
                 return StatusCode(500, new { Message = "Lỗi hệ thống khi xóa chi tiết sản phẩm: " + ex.Message });
             }
         }
+
+        [HttpPost("{productId}/management-details/import-excel")]
+        [Authorize(Roles = "Admin")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> ImportProductDetailsFromExcel(int productId, IFormFile file)
+        {
+            try
+            {
+                var result = await _productService.ImportProductDetailsFromExcelAsync(productId, file);
+                return Ok(new { message = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống khi Import chi tiết sản phẩm: " + ex.Message });
+            }
+        }
+
+        [HttpGet("{productId}/management-details/export-excel")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ExportProductDetailsToExcel(int productId)
+        {
+            try
+            {
+                var excelBytes = await _productService.ExportProductDetailsToExcelAsync(productId);
+
+                string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                string fileName = $"ProductDetails_{productId}_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                return File(excelBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống khi Export chi tiết sản phẩm: " + ex.Message });
+            }
+        }
+
         [HttpGet("management-details/{detailId}/serials")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetVariantSerials(int detailId, int page = 1, int pageSize = 10)

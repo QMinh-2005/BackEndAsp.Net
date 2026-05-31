@@ -27,10 +27,11 @@ namespace MyOwnLearning.Repositories
         }
         public async Task<List<Voucher>> GetVouchersForDropdownAsync(int userId)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
 
             return await _dbset
                 .Include(v => v.VoucherPaymentMethods)
+                .Include(v => v.VoucherConditions)
                 // 1. Chỉ lấy mã đang trong thời gian hiệu lực
                 .Where(v => v.StartDate <= now && v.EndDate >= now && v.IsActive == true)
                 // 2. Chỉ lấy mã hệ thống còn lượt

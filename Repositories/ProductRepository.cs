@@ -69,7 +69,6 @@ namespace MyOwnLearning.Repositories
                 _ => query.OrderByDescending(p => p.ProductId)
             };
             var products = await query
-                .OrderByDescending(p => p.ProductId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

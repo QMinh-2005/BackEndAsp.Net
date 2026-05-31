@@ -35,6 +35,8 @@ namespace MyOwnLearning.Service
         Task<ProductDetailAdminRespones> AddVariantAsync(int productId, CreateProductDetailRequest request);
         Task<ProductDetailAdminRespones> UpdateVariantAsync(int productDetailId, UpdateProductDetailRequest request);
         Task<bool> DeleteVariantAsync(int productDetailId);
+        Task<string> ImportProductDetailsFromExcelAsync(int productId, IFormFile file);
+        Task<byte[]> ExportProductDetailsToExcelAsync(int productId);
 
         //Trang 3: Các phương thức liên quan đến quản lý SerialNumber sẽ được thêm sau khi hoàn thành phần quản lý Variant, vì SerialNumber phụ thuộc vào Variant (ProductDetail)
         Task<VariantSerialsResponse> GetSerialNumbersByVariantIdAsync(int productDetailId, int page, int pageSize);
@@ -530,7 +532,7 @@ namespace MyOwnLearning.Service
             string? validBalancePoint = VariantValidationHelper.ValidateAndMapStringAttribute(request.BalancePoint, VariantAttributes.BalancePoints);
             string? validStiffness = VariantValidationHelper.ValidateAndMapStringAttribute(request.Stiffness, VariantAttributes.Stiffness);
             int? validMaxTension = VariantValidationHelper.ValidateAndMapMaxTension(request.MaxTension);
-            var (existingVariant, _) = await _productRepository.GetProductDetailsByIdAsync(productId, 1, 100);
+            var (existingVariant, _) = await _productRepository.GetProductDetailsByIdAsync(productId, 1, int.MaxValue);
             bool isDuplicate = existingVariant.Any(v =>
                 v.WeightClass == validWeightClass &&
                 v.GripSize == validGripSize &&
@@ -627,6 +629,142 @@ namespace MyOwnLearning.Service
                 throw new Exception("Không thể xóa variant vì đã có đơn hàng liên quan. Vui lòng kiểm tra lại.");
             await _productDetailRepository.DeleteAsync(productDetailId);
             return true;
+        }
+
+        public async Task<string> ImportProductDetailsFromExcelAsync(int productId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("File không được để trống.");
+
+            if (!file.FileName.EndsWith(".xlsx"))
+                throw new ArgumentException("Chỉ hỗ trợ file định dạng .xlsx");
+
+            var product = await _productRepository.GetByIdAsync(productId);
+            if (product == null)
+                throw new Exception($"Sản phẩm với ID {productId} không tồn tại.");
+
+            var importedCount = 0;
+            var errorMessages = new List<string>();
+
+            using (var stream = new MemoryStream())
+            {
+                await file.CopyToAsync(stream);
+                using (var package = new ExcelPackage(stream))
+                {
+                    var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                    if (worksheet?.Dimension == null)
+                        throw new ArgumentException("File Excel không có dữ liệu.");
+
+                    int rowCount = worksheet.Dimension.Rows;
+
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        try
+                        {
+                            bool isEmptyRow = Enumerable.Range(2, 7)
+                                .All(col => string.IsNullOrWhiteSpace(worksheet.Cells[row, col].Text));
+                            if (isEmptyRow) continue;
+
+                            if (!decimal.TryParse(worksheet.Cells[row, 7].Text, out var price) || price <= 0)
+                            {
+                                errorMessages.Add($"Dòng {row}: Giá bán không hợp lệ.");
+                                continue;
+                            }
+
+                            if (!int.TryParse(worksheet.Cells[row, 8].Text, out var stockQuantity) || stockQuantity < 0)
+                            {
+                                errorMessages.Add($"Dòng {row}: Số lượng tồn kho không hợp lệ.");
+                                continue;
+                            }
+
+                            int? maxTension = null;
+                            var maxTensionText = worksheet.Cells[row, 6].Text.Trim();
+                            if (!string.IsNullOrWhiteSpace(maxTensionText))
+                            {
+                                if (!int.TryParse(maxTensionText, out var parsedMaxTension))
+                                {
+                                    errorMessages.Add($"Dòng {row}: MaxTension không hợp lệ.");
+                                    continue;
+                                }
+
+                                maxTension = parsedMaxTension;
+                            }
+
+                            var request = new CreateProductDetailRequest
+                            {
+                                WeightClass = worksheet.Cells[row, 2].Text.Trim(),
+                                GripSize = worksheet.Cells[row, 3].Text.Trim(),
+                                BalancePoint = worksheet.Cells[row, 4].Text.Trim(),
+                                Stiffness = worksheet.Cells[row, 5].Text.Trim(),
+                                MaxTension = maxTension,
+                                Price = price,
+                                StockQuantity = stockQuantity
+                            };
+
+                            await AddVariantAsync(productId, request);
+                            importedCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMessages.Add($"Dòng {row}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+            string resultMessage = $"Đã import thành công {importedCount} chi tiết sản phẩm.";
+            if (errorMessages.Any())
+            {
+                resultMessage += $"\nTuy nhiên, có {errorMessages.Count} dòng bị bỏ qua do lỗi:\n";
+                resultMessage += string.Join("\n", errorMessages);
+            }
+
+            return resultMessage;
+        }
+
+        public async Task<byte[]> ExportProductDetailsToExcelAsync(int productId)
+        {
+            var product = await _productRepository.GetByIdAsync(productId);
+            if (product == null)
+                throw new Exception($"Sản phẩm với ID {productId} không tồn tại.");
+
+            var (productDetails, _) = await _productRepository.GetProductDetailsByIdAsync(productId, 1, int.MaxValue);
+
+            using (var package = new ExcelPackage())
+            {
+                var worksheet = package.Workbook.Worksheets.Add("ProductDetails_Export");
+
+                string[] headers = {
+                    "Detail ID", "WeightClass", "GripSize", "BalancePoint", "Stiffness",
+                    "MaxTension", "Price", "StockQuantity", "Total Serial"
+                };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cells[1, i + 1].Value = headers[i];
+                    worksheet.Cells[1, i + 1].Style.Font.Bold = true;
+                    worksheet.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    worksheet.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightBlue);
+                }
+
+                int row = 2;
+                foreach (var detail in productDetails)
+                {
+                    worksheet.Cells[row, 1].Value = detail.DetailId;
+                    worksheet.Cells[row, 2].Value = detail.WeightClass;
+                    worksheet.Cells[row, 3].Value = detail.GripSize;
+                    worksheet.Cells[row, 4].Value = detail.BalancePoint;
+                    worksheet.Cells[row, 5].Value = detail.Stiffness;
+                    worksheet.Cells[row, 6].Value = detail.MaxTension;
+                    worksheet.Cells[row, 7].Value = detail.Price;
+                    worksheet.Cells[row, 8].Value = detail.StockQuantity;
+                    worksheet.Cells[row, 9].Value = detail.ProductSerials?.Count ?? 0;
+                    row++;
+                }
+
+                worksheet.Cells.AutoFitColumns();
+                return package.GetAsByteArray();
+            }
         }
 
 

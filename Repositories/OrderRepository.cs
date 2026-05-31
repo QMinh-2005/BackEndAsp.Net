@@ -203,9 +203,58 @@ namespace MyOwnLearning.Repositories
         // CREATE ORDER — Tích hợp Voucher
         // =====================================================
 
+        private async Task ApplyVoucherUsageAsync(int userId, List<AppliedVoucherDetail> voucherDetails)
+        {
+            if (voucherDetails == null || !voucherDetails.Any())
+                return;
+
+            var voucherIds = voucherDetails.Select(v => v.VoucherId).Distinct().ToList();
+            var vouchers = await _context.Vouchers
+                .Where(v => voucherIds.Contains(v.VoucherId))
+                .ToDictionaryAsync(v => v.VoucherId);
+
+            var userVouchers = await _context.UserVouchers
+                .Where(uv => uv.UserId == userId && voucherIds.Contains(uv.VoucherId))
+                .ToDictionaryAsync(uv => uv.VoucherId);
+
+            foreach (var appliedVoucher in voucherDetails)
+            {
+                if (!vouchers.TryGetValue(appliedVoucher.VoucherId, out var voucher))
+                    throw new Exception($"Voucher ID {appliedVoucher.VoucherId} không tồn tại.");
+
+                if (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value)
+                    throw new InvalidOperationException($"Mã {voucher.VoucherCode} đã hết lượt sử dụng.");
+
+                voucher.UsedCount++;
+
+                if (voucher.IsGlobal == true)
+                {
+                    var usedTimes = await _context.OrderVouchers
+                        .CountAsync(ov =>
+                            ov.VoucherId == voucher.VoucherId &&
+                            ov.Order.UserId == userId &&
+                            ov.Order.OrderStatusId != (int)OrderStatusEnum.DaHuy);
+
+                    if (usedTimes >= voucher.MaxUsagePerUser)
+                        throw new InvalidOperationException($"Bạn đã dùng hết lượt cho phép của mã toàn sàn {voucher.VoucherCode}.");
+
+                    continue;
+                }
+
+                if (!userVouchers.TryGetValue(appliedVoucher.VoucherId, out var userVoucher))
+                    throw new InvalidOperationException($"Người dùng chưa sở hữu mã {voucher.VoucherCode} trong ví.");
+
+                if (userVoucher.CurrentUsageCount >= voucher.MaxUsagePerUser)
+                    throw new InvalidOperationException($"Bạn đã dùng hết lượt cho phép của mã {voucher.VoucherCode}.");
+
+                userVoucher.CurrentUsageCount++;
+                userVoucher.UsedDate = DateTime.UtcNow;
+            }
+        }
+
         /// <param name="voucherDetails">
         /// Danh sách voucher đã được validate và tính discount từ VoucherService,
-        /// được truyền vào để ghi vào bảng OrderVoucher trong cùng 1 transaction.
+        /// được truyền vào để ghi OrderVoucher và cập nhật lượt dùng trong cùng 1 transaction.
         /// </param>
         public async Task<Order> CreateOrderAsync(
             int userId,
@@ -315,7 +364,10 @@ namespace MyOwnLearning.Repositories
                     });
                 }
 
-                // --- 9. Xóa các CartItem đã đặt hàng ---
+                // --- 9. Cập nhật lượt dùng Voucher trong cùng transaction tạo đơn ---
+                await ApplyVoucherUsageAsync(userId, voucherDetails);
+
+                // --- 10. Xóa các CartItem đã đặt hàng ---
                 var cartItemsToRemove = await _context.CartItems
                     .Where(ci => ci.Cart.UserId == userId && detailsIdRequest.Contains(ci.DetailId))
                     .ToListAsync();
@@ -323,7 +375,7 @@ namespace MyOwnLearning.Repositories
                 if (cartItemsToRemove.Any())
                     _context.CartItems.RemoveRange(cartItemsToRemove);
 
-                // --- 10. Lưu tất cả ---
+                // --- 11. Lưu tất cả ---
                 await _dbset.AddAsync(order);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
