@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.Service;
 
 namespace MyOwnLearning.Controllers
@@ -19,8 +20,9 @@ namespace MyOwnLearning.Controllers
         }
 
         // Gọi API này khi người dùng click vào Dropdown chọn Voucher ở trang Thanh toán
-        [HttpGet("my-voucher")]
-        public async Task<IActionResult> GetAvailableVouchers([FromQuery] string? paymentMethod)
+        [HttpPost("my-voucher")]
+        [Authorize]
+        public async Task<IActionResult> GetAvailableVouchers([FromBody] ApplicableVoucherRequest request)
         {
             try
             {
@@ -28,7 +30,7 @@ namespace MyOwnLearning.Controllers
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
                     return Unauthorized(new { Message = "Vui lòng đăng nhập." });
 
-                var result = await _voucherService.GetAvailableVouchersForUserAsync(userId, paymentMethod);
+                var result = await _voucherService.GetAvailableVouchersForUserAsync(userId, request);
                 return Ok(result);
             }
             catch (Exception ex)

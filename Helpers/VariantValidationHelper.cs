@@ -6,7 +6,7 @@ namespace MyOwnLearning.Helpers
     {
         public static string? ValidateAndMapStringAttribute(string? input, List<string> VariantAttributes)
         {
-            if (string.IsNullOrWhiteSpace(input) || input == "N/A (Không áp dụng")
+            if (string.IsNullOrWhiteSpace(input) || input == "N/A (Không áp dụng)")
             {
                 return null;
             }

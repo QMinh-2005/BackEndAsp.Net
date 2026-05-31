@@ -96,7 +96,8 @@ namespace MyOwnLearning.Service
 
         public async Task<CartResponse> UpdateCartAsync(int userId, int cartItemId, int quantity)
         {
-            var cartItem = await _cartItemRepository.GetByIdAsync(cartItemId);
+            var cart = await _cartRepository.GetCartByUserIdAsync(userId);
+            var cartItem = cart?.CartItems.FirstOrDefault(i => i.CartItemId == cartItemId);
             if (cartItem == null)
             {
                 throw new KeyNotFoundException("Sản phẩm không tồn tại trong giỏ hàng");
@@ -106,7 +107,6 @@ namespace MyOwnLearning.Service
             {
                 throw new InvalidOperationException($"Không đủ hàng trong kho. Tối đa bạn có thể đặt là {detail.StockQuantity} sản phẩm này.");
             }
-
             if (quantity <= 0)
             {
                 await _cartItemRepository.DeleteAsync(cartItemId);

@@ -179,19 +179,12 @@ namespace MyOwnLearning.Service
                 }
 
                 // --- BƯỚC 2: Gọi Repository tạo đơn hàng, truyền vào voucher details ---
-                // ✅ Repository sẽ ghi Order + OrderVoucher trong 1 transaction duy nhất
+                // Repository sẽ ghi Order + OrderVoucher + lượt dùng voucher trong cùng một transaction.
                 var order = await _orderRepository.CreateOrderAsync(
                     userId,
                     request,
                     voucherResult.AppliedVoucherDetails
                 );
-
-                // --- BƯỚC 3: Cập nhật lượt dùng Voucher SAU KHI đơn hàng đã lưu thành công ---
-                // ✅ Tách riêng để nếu bước này lỗi không rollback cả đơn hàng
-                if (request.VoucherIds != null && request.VoucherIds.Any())
-                {
-                    await _voucherService.UpdateVoucherUsageAsync(userId, request.VoucherIds);
-                }
 
                 return MapToResponse(order);
             }

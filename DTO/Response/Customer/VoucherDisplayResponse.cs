@@ -12,5 +12,8 @@
         public DateTime? EndDate { get; set; }
         public bool IsGlobal { get; set; }
         public List<string> AllowedPaymentMethods { get; set; } = new List<string>();
+        // ✅ BỔ SUNG 2 TRƯỜNG NÀY ĐỂ FRONTEND XỬ LÝ SÁNG / TỐI
+        public bool IsEligible { get; set; } = true; // true = Sáng (Dùng được), false = Tối (Bị khóa)
+        public string? DisabledReason { get; set; }   // Lý do vì sao mã này bị tối hóa
     }
 }
