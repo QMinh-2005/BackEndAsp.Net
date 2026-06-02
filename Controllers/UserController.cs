@@ -142,6 +142,7 @@ namespace MyOwnLearning.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
         [Authorize] // Bắt buộc phải đăng nhập
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] ChangeInfoRequest request)
