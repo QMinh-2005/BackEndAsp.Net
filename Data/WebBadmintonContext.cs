@@ -50,6 +50,8 @@ public partial class WebBadmintonContext : DbContext
 
     public virtual DbSet<Review> Reviews { get; set; }
 
+    public virtual DbSet<ReviewImage> ReviewImages { get; set; }
+
     public virtual DbSet<Role> Roles { get; set; }
 
     public virtual DbSet<RoleModuleFunction> RoleModuleFunctions { get; set; }
@@ -316,7 +318,6 @@ public partial class WebBadmintonContext : DbContext
 
             entity.Property(e => e.ImageId).HasColumnName("ImageID");
             entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
-            entity.Property(e => e.ImageUrl).HasMaxLength(500);
             entity.Property(e => e.ProductId).HasColumnName("ProductID");
 
             entity.HasOne(d => d.Product).WithMany(p => p.ProductImages)
@@ -374,17 +375,32 @@ public partial class WebBadmintonContext : DbContext
             entity.HasIndex(e => e.OrderDetailId, "UQ__Reviews__D3B9D30D7512D994").IsUnique();
 
             entity.Property(e => e.ReviewId).HasColumnName("ReviewID");
-            entity.Property(e => e.ImageUrl)
-                .HasMaxLength(500)
-                .HasColumnName("ImageURL");
+            entity.Property(e => e.IsVisible).HasDefaultValue(true);
             entity.Property(e => e.OrderDetailId).HasColumnName("OrderDetailID");
             entity.Property(e => e.ReviewDate)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime");
 
             entity.HasOne(d => d.OrderDetail).WithOne(p => p.Review)
                 .HasForeignKey<Review>(d => d.OrderDetailId)
                 .HasConstraintName("FK__Reviews__OrderDe__2BFE89A6");
+        });
+
+        modelBuilder.Entity<ReviewImage>(entity =>
+        {
+            entity.HasKey(e => e.ReviewImageId).HasName("PK__ReviewIm__4AE9505F2C01D6A6");
+
+            entity.Property(e => e.ReviewImageId).HasColumnName("ReviewImageID");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(500)
+                .HasColumnName("ImageURL");
+            entity.Property(e => e.ReviewId).HasColumnName("ReviewID");
+
+            entity.HasOne(d => d.Review).WithMany(p => p.ReviewImages)
+                .HasForeignKey(d => d.ReviewId)
+                .HasConstraintName("FK_ReviewImages_Reviews");
         });
 
         modelBuilder.Entity<Role>(entity =>

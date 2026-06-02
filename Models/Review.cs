@@ -15,7 +15,11 @@ public partial class Review
 
     public DateTime? ReviewDate { get; set; }
 
-    public string? ImageUrl { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+
+    public bool IsVisible { get; set; }
 
     public virtual OrderDetail OrderDetail { get; set; } = null!;
+
+    public virtual ICollection<ReviewImage> ReviewImages { get; set; } = new List<ReviewImage>();
 }
