@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -12,13 +13,15 @@ namespace MyOwnLearning.Service
 {
     public interface IOrderService
     {
-        Task<(List<OrderResponse> Orders, int TotalCount)> GetAllOrdersAsync(int page, int pageSize);
+        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetAllOrdersAsync(int page, int pageSize);
+        Task<OrderResponse> GetOrderDetailForAdminAsync(int orderId);
         Task<List<OrderResponse>> GetMyOrdersAsync(int userId);
         Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request);
         Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId);
         Task<OrderResponse> CancelMyOrderAsync(int orderId, int userId);
-        Task<(List<OrderResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
-        Task<(List<OrderResponse> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
+        Task<OrderResponse> CancelOrderByAdminAsync(int orderId, int adminId, string reason);
+        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
+        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
     }
 
     public class OrderService : IOrderService
@@ -62,6 +65,54 @@ namespace MyOwnLearning.Service
         private bool IsValidStatusTransition(OrderStatusEnum currentStatus, OrderStatusEnum newStatus)
             => _validTransitions.ContainsKey(currentStatus) && _validTransitions[currentStatus].Contains(newStatus);
 
+        private async Task RevertOrderResourcesAsync(Order order)
+        {
+            foreach (var orderDetail in order.OrderDetails)
+            {
+                if (orderDetail.Detail != null)
+                {
+                    orderDetail.Detail.StockQuantity += orderDetail.Quantity;
+
+                    if (orderDetail.Detail.Product != null)
+                        orderDetail.Detail.Product.SoldQuantity -= orderDetail.Quantity;
+
+                    _context.ProductDetails.Update(orderDetail.Detail);
+                }
+
+                var serialsToRevert = await _context.ProductSerials
+                    .Where(ps => ps.OrderDetailId == orderDetail.OrderDetailId)
+                    .ToListAsync();
+
+                foreach (var serial in serialsToRevert)
+                {
+                    serial.Status = ProductSerialStatus.InStock;
+                    serial.OrderDetailId = null;
+                }
+            }
+
+            var voucherIds = order.OrderVouchers?.Select(ov => ov.VoucherId).ToList();
+            if (voucherIds == null || !voucherIds.Any())
+                return;
+
+            foreach (var voucherId in voucherIds)
+            {
+                var voucher = await _context.Vouchers.FindAsync(voucherId);
+                if (voucher != null && voucher.UsedCount > 0)
+                    voucher.UsedCount--;
+
+                var userVoucher = await _context.UserVouchers
+                    .FirstOrDefaultAsync(uv => uv.UserId == order.UserId && uv.VoucherId == voucherId);
+
+                if (userVoucher != null && userVoucher.CurrentUsageCount > 0)
+                {
+                    userVoucher.CurrentUsageCount--;
+
+                    if (userVoucher.CurrentUsageCount == 0)
+                        userVoucher.UsedDate = null;
+                }
+            }
+        }
+
         // =====================================================
         // HELPER — Map Order Entity → OrderResponse DTO
         // =====================================================
@@ -81,6 +132,9 @@ namespace MyOwnLearning.Service
                 PhoneNumber = o.PhoneNumber,
                 ShippingAddress = o.ShippingAddress,
                 Note = o.Note,
+                CancelReason = o.CancelReason,
+                CancelledAt = o.CancelledAt,
+                CancelledByUserId = o.CancelledByUserId,
                 PaymentMethod = o.Payment?.PaymentMethod ?? "Chưa xác định",
                 // ✅ Map danh sách voucher đã áp dụng
                 AppliedVouchers = o.OrderVouchers?.Select(ov => new AppliedVoucherResponse
@@ -114,23 +168,78 @@ namespace MyOwnLearning.Service
             return orders.Select(MapToResponse).OrderByDescending(o => o.OrderDate).ToList();
         }
 
-        public async Task<(List<OrderResponse> Orders, int TotalCount)> GetAllOrdersAsync(int page, int pageSize)
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetAllOrdersAsync(int page, int pageSize)
         {
-            var (orders, totalCount) = await _orderRepository.GetAllOrdersWithDetailsAsync(page, pageSize);
-            return (orders.Select(MapToResponse).ToList(), totalCount);
+            return await _orderRepository.GetAllOrderSummariesAsync(page, pageSize);
         }
 
-        public async Task<(List<OrderResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize)
+        public async Task<OrderResponse> GetOrderDetailForAdminAsync(int orderId)
         {
-            var (orders, totalCount) = await _orderRepository.GetOrdersByStatusIdAsync(statusId, page, pageSize);
-            return (orders.Select(MapToResponse).ToList(), totalCount);
+            var order = await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.OrderId == orderId)
+                .Select(o => new OrderResponse
+                {
+                    OrderId = o.OrderId,
+                    OrderDate = o.OrderDate,
+                    SubTotal = o.SubTotal,
+                    TotalDiscount = o.TotalDiscount,
+                    FinalAmount = o.FinalAmount,
+                    ShippingFee = o.ShippingFee,
+                    Status = o.OrderStatus != null ? o.OrderStatus.StatusName : "Chưa xác định",
+                    ReceiverName = o.ReceiverName ?? string.Empty,
+                    PhoneNumber = o.PhoneNumber,
+                    ShippingAddress = o.ShippingAddress,
+                    Note = o.Note,
+                    CancelReason = o.CancelReason,
+                    CancelledAt = o.CancelledAt,
+                    CancelledByUserId = o.CancelledByUserId,
+                    PaymentMethod = o.Payment != null ? o.Payment.PaymentMethod : "Chưa xác định",
+                    AppliedVouchers = o.OrderVouchers
+                        .Select(ov => new AppliedVoucherResponse
+                        {
+                            VoucherCode = ov.Voucher != null ? ov.Voucher.VoucherCode : string.Empty,
+                            AppliedDiscount = ov.AppliedDiscount
+                        })
+                        .ToList(),
+                    OrderDetails = o.OrderDetails
+                        .OrderBy(od => od.OrderDetailId)
+                        .Select(od => new OrderDetailResponse
+                        {
+                            OrderDetailId = od.OrderDetailId,
+                            DetailId = od.DetailId,
+                            Quantity = od.Quantity,
+                            UnitPrice = od.UnitPrice,
+                            IsStringingService = od.IsStringingService,
+                            StringBrand = od.StringBrand,
+                            TensionKg = od.TensionKg,
+                            ProductName = od.Detail != null && od.Detail.Product != null
+                                ? od.Detail.Product.ProductName
+                                : string.Empty,
+                            SerialNumbers = od.ProductSerials
+                                .Select(ps => ps.SerialNumber)
+                                .ToList()
+                        })
+                        .ToList()
+                })
+                .AsSplitQuery()
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+                throw new Exception("Không tìm thấy đơn hàng.");
+
+            return order;
         }
 
-        public async Task<(List<OrderResponse> Orders, int TotalCount)> SearchOrderAdminAsync(
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize)
+        {
+            return await _orderRepository.GetOrderSummariesByStatusIdAsync(statusId, page, pageSize);
+        }
+
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderAdminAsync(
             decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
         {
-            var (orders, totalCount) = await _orderRepository.SearchOrderAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
-            return (orders.Select(MapToResponse).ToList(), totalCount);
+            return await _orderRepository.SearchOrderSummaryAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
         }
 
         // =====================================================
@@ -205,6 +314,9 @@ namespace MyOwnLearning.Service
             if (!Enum.IsDefined(typeof(OrderStatusEnum), newStatusId))
                 throw new ArgumentException("Trạng thái mới không hợp lệ.");
 
+            if (newStatusId == (int)OrderStatusEnum.DaHuy)
+                throw new InvalidOperationException("Vui lòng dùng API hủy đơn để nhập và lưu lý do hủy.");
+
             var currentStatus = (OrderStatusEnum)order.OrderStatusId;
             var nextStatus = (OrderStatusEnum)newStatusId;
 
@@ -236,54 +348,12 @@ namespace MyOwnLearning.Service
                     order.OrderStatusId != (int)OrderStatusEnum.DaXacNhan)
                     throw new InvalidOperationException("Chỉ có thể hủy đơn hàng khi đang ở trạng thái 'Chờ xác nhận' hoặc 'Đã xác nhận'.");
 
-                // --- Revert Stock, SoldQuantity, ProductSerial ---
-                foreach (var orderDetail in order.OrderDetails)
-                {
-                    if (orderDetail.Detail != null)
-                    {
-                        orderDetail.Detail.StockQuantity += orderDetail.Quantity;
-
-                        if (orderDetail.Detail.Product != null)
-                            orderDetail.Detail.Product.SoldQuantity -= orderDetail.Quantity;
-
-                        _context.ProductDetails.Update(orderDetail.Detail);
-                    }
-
-                    var serialsToRevert = await _context.ProductSerials
-                        .Where(ps => ps.OrderDetailId == orderDetail.OrderDetailId)
-                        .ToListAsync();
-
-                    foreach (var serial in serialsToRevert)
-                    {
-                        serial.Status = ProductSerialStatus.InStock;
-                        serial.OrderDetailId = null;
-                    }
-                }
-
-                // ✅ Hoàn lại lượt dùng Voucher khi hủy đơn
-                var voucherIds = order.OrderVouchers?.Select(ov => ov.VoucherId).ToList();
-                if (voucherIds != null && voucherIds.Any())
-                {
-                    foreach (var voucherId in voucherIds)
-                    {
-                        var voucher = await _context.Vouchers.FindAsync(voucherId);
-                        if (voucher != null && voucher.UsedCount > 0)
-                            voucher.UsedCount--;
-
-                        var userVoucher = await _context.UserVouchers
-                            .FirstOrDefaultAsync(uv => uv.UserId == userId && uv.VoucherId == voucherId);
-
-                        if (userVoucher != null && userVoucher.CurrentUsageCount > 0)
-                        {
-                            userVoucher.CurrentUsageCount--;
-                            // Reset UsedDate nếu về 0 lượt
-                            if (userVoucher.CurrentUsageCount == 0)
-                                userVoucher.UsedDate = null;
-                        }
-                    }
-                }
+                await RevertOrderResourcesAsync(order);
 
                 order.OrderStatusId = (int)OrderStatusEnum.DaHuy;
+                order.CancelReason = "Khách hàng yêu cầu hủy đơn.";
+                order.CancelledAt = DateTime.UtcNow;
+                order.CancelledByUserId = userId;
                 await _orderRepository.UpdateAsync(order);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -295,6 +365,44 @@ namespace MyOwnLearning.Service
             {
                 await transaction.RollbackAsync();
                 throw new Exception("Đã xảy ra lỗi khi hủy đơn hàng: " + ex.Message);
+            }
+        }
+
+        public async Task<OrderResponse> CancelOrderByAdminAsync(int orderId, int adminId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Vui lòng nhập lý do hủy đơn.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var order = await _orderRepository.GetOrderByIdAsync(orderId);
+
+                if (order.OrderStatusId == (int)OrderStatusEnum.DaHuy)
+                    throw new InvalidOperationException("Đơn hàng đã được hủy trước đó.");
+
+                var currentStatus = (OrderStatusEnum)order.OrderStatusId;
+                if (!IsValidStatusTransition(currentStatus, OrderStatusEnum.DaHuy))
+                    throw new InvalidOperationException($"Không thể hủy đơn hàng khi đang ở trạng thái {currentStatus}.");
+
+                await RevertOrderResourcesAsync(order);
+
+                order.OrderStatusId = (int)OrderStatusEnum.DaHuy;
+                order.CancelReason = reason.Trim();
+                order.CancelledAt = DateTime.UtcNow;
+                order.CancelledByUserId = adminId;
+
+                await _orderRepository.UpdateAsync(order);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
+                return MapToResponse(order);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception("Đã xảy ra lỗi khi Admin hủy đơn hàng: " + ex.Message);
             }
         }
     }
