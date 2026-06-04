@@ -157,6 +157,9 @@ public partial class WebBadmintonContext : DbContext
             entity.HasKey(e => e.OrderId).HasName("PK__Orders__C3905BAFA6FD3200");
 
             entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.CancelReason).HasMaxLength(500);
+            entity.Property(e => e.CancelledAt).HasColumnType("datetime");
+            entity.Property(e => e.CancelledByUserId).HasColumnName("CancelledByUserID");
             entity.Property(e => e.FinalAmount)
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(18, 2)");

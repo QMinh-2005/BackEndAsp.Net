@@ -3,6 +3,7 @@ using Azure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
 using MyOwnLearning.Interfaces;
@@ -39,6 +40,7 @@ namespace MyOwnLearning.Controllers
             return Ok(orders);
         }
         [HttpGet("all-orders")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var (orders, totalCount) = await _orderService.GetAllOrdersAsync(page, pageSize);
@@ -51,6 +53,22 @@ namespace MyOwnLearning.Controllers
                 PageSize = pageSize,
                 TotalPages = totalPages
             });
+        }
+
+        [HttpGet("admin/{orderId:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetOrderDetailForAdmin(int orderId)
+        {
+            try
+            {
+                var order = await _orderService.GetOrderDetailForAdminAsync(orderId);
+                return Ok(order);
+            }
+            catch (Exception ex)
+
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         [HttpPost("preview")]
@@ -128,6 +146,7 @@ namespace MyOwnLearning.Controllers
             }
         }
         [HttpPut("updateStatus/{orderId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrderStatus(int orderId, [FromBody] int newOrderStatusId)
         {
             try
@@ -140,7 +159,28 @@ namespace MyOwnLearning.Controllers
                 return BadRequest(new { Message = ex.Message });
             }
         }
+
+        [HttpPut("admin/{orderId:int}/cancel")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CancelOrderByAdmin(int orderId, [FromBody] CancelOrderRequest request)
+        {
+            var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(adminIdClaim) || !int.TryParse(adminIdClaim, out var adminId))
+                return Unauthorized(new { Message = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn." });
+
+            try
+            {
+                var canceledOrder = await _orderService.CancelOrderByAdminAsync(orderId, adminId, request.Reason);
+                return Ok(canceledOrder);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPut("cancel-my-order/{orderId}")]
+        [Authorize]
         public async Task<IActionResult> CancelMyOrder(int orderId)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -159,6 +199,7 @@ namespace MyOwnLearning.Controllers
             }
         }
         [HttpGet("all-orders-by-status/{statusId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetOrdersByStatus(int statusId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             try
@@ -180,6 +221,7 @@ namespace MyOwnLearning.Controllers
             }
         }
         [HttpGet("admin-search")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> SearchOrderAdmin([FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] DateTime? orderDate, [FromQuery] int? statusId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             try

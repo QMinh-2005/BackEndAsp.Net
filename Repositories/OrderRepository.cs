@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -12,6 +13,28 @@ namespace MyOwnLearning.Repositories
     {
         public OrderRepository(WebBadmintonContext context) : base(context)
         {
+        }
+
+        private static IQueryable<OrderSummaryResponse> ProjectOrderSummaries(IQueryable<Order> query)
+        {
+            return query.Select(o => new OrderSummaryResponse
+            {
+                OrderId = o.OrderId,
+                OrderDate = o.OrderDate,
+                ReceiverName = o.ReceiverName,
+                PhoneNumber = o.PhoneNumber,
+                FinalAmount = o.FinalAmount,
+                Status = o.OrderStatus != null ? o.OrderStatus.StatusName : "Chưa xác định",
+                PaymentMethod = o.Payment != null ? o.Payment.PaymentMethod : "Chưa xác định",
+                FirstProductName = o.OrderDetails
+                    .OrderBy(od => od.OrderDetailId)
+                    .Select(od => od.Detail.Product.ProductName)
+                    .FirstOrDefault() ?? "N/A",
+                TotalProducts = o.OrderDetails.Count(),
+                CancelReason = o.CancelReason,
+                CancelledAt = o.CancelledAt,
+                CancelledByUserId = o.CancelledByUserId
+            });
         }
 
         // =====================================================
@@ -63,6 +86,7 @@ namespace MyOwnLearning.Repositories
                 // ✅ Include OrderVouchers để trả về thông tin voucher đã áp dụng
                 .Include(o => o.OrderVouchers)
                     .ThenInclude(ov => ov.Voucher)
+                .AsSplitQuery()
                 .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
         }
@@ -70,6 +94,7 @@ namespace MyOwnLearning.Repositories
         public async Task<Order> GetOrderByIdAsync(int orderId)
         {
             var order = await _dbset
+                .Where(o => o.OrderId == orderId)
                 .Include(o => o.Payment)
                 .Include(o => o.OrderStatus)
                 .Include(o => o.OrderDetails)
@@ -79,8 +104,8 @@ namespace MyOwnLearning.Repositories
                     .ThenInclude(od => od.ProductSerials)
                 .Include(o => o.OrderVouchers)
                     .ThenInclude(ov => ov.Voucher)
-                .OrderByDescending(o => o.OrderDate)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+                .AsSplitQuery()
+                .FirstOrDefaultAsync();
 
             if (order == null)
                 throw new Exception("Không tìm thấy đơn hàng.");
@@ -109,9 +134,24 @@ namespace MyOwnLearning.Repositories
             return (orders, totalCount);
         }
 
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetAllOrderSummariesAsync(int page, int pageSize)
+        {
+            var query = _dbset.AsNoTracking();
+
+            var totalCount = await query.CountAsync();
+            var orders = await ProjectOrderSummaries(query)
+                .OrderByDescending(o => o.OrderDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
+        }
+
         public async Task<Order> GetOrderByIdAndUserIdAsync(int orderId, int userId)
         {
             var order = await _dbset
+                .Where(o => o.OrderId == orderId && o.UserId == userId)
                 .Include(o => o.Payment)
                 .Include(o => o.OrderStatus)
                 .Include(o => o.OrderDetails)
@@ -121,7 +161,8 @@ namespace MyOwnLearning.Repositories
                     .ThenInclude(od => od.ProductSerials)
                 .Include(o => o.OrderVouchers)
                     .ThenInclude(ov => ov.Voucher)
-                .FirstOrDefaultAsync(o => o.OrderId == orderId && o.UserId == userId);
+                .AsSplitQuery()
+                .FirstOrDefaultAsync();
 
             if (order == null)
                 throw new Exception("Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập.");
@@ -147,6 +188,25 @@ namespace MyOwnLearning.Repositories
 
             var totalCount = await query.CountAsync();
             var orders = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
+        }
+
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrderSummariesByStatusIdAsync(int statusId, int page, int pageSize)
+        {
+            if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
+                throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
+
+            var query = _dbset
+                .AsNoTracking()
+                .Where(o => o.OrderStatusId == statusId);
+
+            var totalCount = await query.CountAsync();
+            var orders = await ProjectOrderSummaries(query)
+                .OrderByDescending(o => o.OrderDate)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -192,6 +252,42 @@ namespace MyOwnLearning.Repositories
 
             var totalCount = await query.CountAsync();
             var orders = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
+        }
+
+        public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderSummaryAdminAsync(
+            decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
+        {
+            var query = _dbset.AsNoTracking().AsQueryable();
+
+            if (minPrice.HasValue)
+                query = query.Where(o => o.FinalAmount >= minPrice.Value);
+
+            if (maxPrice.HasValue)
+                query = query.Where(o => o.FinalAmount <= maxPrice.Value);
+
+            if (statusId.HasValue)
+            {
+                if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
+                    throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
+
+                query = query.Where(o => o.OrderStatusId == statusId.Value);
+            }
+
+            if (orderDate.HasValue)
+            {
+                var startDate = orderDate.Value.Date;
+                var endDate = startDate.AddDays(1);
+                query = query.Where(o => o.OrderDate >= startDate && o.OrderDate < endDate);
+            }
+
+            var totalCount = await query.CountAsync();
+            var orders = await ProjectOrderSummaries(query)
+                .OrderByDescending(o => o.OrderDate)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

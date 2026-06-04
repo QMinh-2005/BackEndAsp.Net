@@ -13,6 +13,9 @@
         public string PhoneNumber { get; set; }
         public string ShippingAddress { get; set; }
         public string? Note { get; set; }
+        public string? CancelReason { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public int? CancelledByUserId { get; set; }
 
         public string PaymentMethod { get; set; }
         public List<OrderDetailResponse> OrderDetails
