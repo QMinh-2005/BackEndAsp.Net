@@ -19,6 +19,7 @@
     }
     public class SerialNumberDto
     {
+        public int SerialId { get; set; }
         public string SerialNumber { get; set; } = null!;
         public string Status { get; set; } = null!; // InStock, Sold, Reserved, Defective
         public DateTime ImportDate { get; set; }

@@ -160,5 +160,77 @@ namespace MyOwnLearning.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        [HttpGet("orders/status")]
+        public async Task<IActionResult> GetOrderStatusStatistics(DateTime? fromDate, DateTime? toDate)
+        {
+            try
+            {
+                var result = await _statisticService.GetOrderStatusStatisticsAsync(fromDate, toDate);
+                return Ok(new { success = true, data = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("revenue/payment-method")]
+        public async Task<IActionResult> GetRevenueByPaymentMethod(DateTime? fromDate, DateTime? toDate)
+        {
+            try
+            {
+                var result = await _statisticService.GetRevenueByPaymentMethodAsync(fromDate, toDate);
+                return Ok(new { success = true, data = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("vouchers/effectiveness")]
+        public async Task<IActionResult> GetVoucherEffectiveness(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            try
+            {
+                var result = await _statisticService.GetVoucherEffectivenessAsync(fromDate, toDate, top);
+                return Ok(new { success = true, data = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("customers/top")]
+        public async Task<IActionResult> GetTopCustomers(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            try
+            {
+                var result = await _statisticService.GetTopCustomersAsync(fromDate, toDate, top);
+                return Ok(new { success = true, data = result });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 }

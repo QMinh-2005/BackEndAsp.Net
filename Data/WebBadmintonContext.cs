@@ -16,6 +16,8 @@ public partial class WebBadmintonContext : DbContext
     {
     }
 
+    public virtual DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
+
     public virtual DbSet<Brand> Brands { get; set; }
 
     public virtual DbSet<Cart> Carts { get; set; }
@@ -29,6 +31,8 @@ public partial class WebBadmintonContext : DbContext
     public virtual DbSet<Module> Modules { get; set; }
 
     public virtual DbSet<Order> Orders { get; set; }
+
+    public virtual DbSet<OrderDeliveryProof> OrderDeliveryProofs { get; set; }
 
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
 
@@ -47,6 +51,10 @@ public partial class WebBadmintonContext : DbContext
     public virtual DbSet<ProductSerial> ProductSerials { get; set; }
 
     public virtual DbSet<ProductSpecification> ProductSpecifications { get; set; }
+
+    public virtual DbSet<ReturnRequest> ReturnRequests { get; set; }
+
+    public virtual DbSet<ReturnRequestImage> ReturnRequestImages { get; set; }
 
     public virtual DbSet<Review> Reviews { get; set; }
 
@@ -76,6 +84,35 @@ public partial class WebBadmintonContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AdminAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.AuditLogId).HasName("PK__AdminAud__EB5F6CDD3CA6B67F");
+
+            entity.HasIndex(e => e.AdminId, "IX_AdminAuditLogs_AdminID");
+
+            entity.HasIndex(e => e.CreatedAt, "IX_AdminAuditLogs_CreatedAt").IsDescending();
+
+            entity.HasIndex(e => new { e.Module, e.Action }, "IX_AdminAuditLogs_Module_Action");
+
+            entity.HasIndex(e => new { e.TargetType, e.TargetId }, "IX_AdminAuditLogs_Target");
+
+            entity.Property(e => e.AuditLogId).HasColumnName("AuditLogID");
+            entity.Property(e => e.Action).HasMaxLength(100);
+            entity.Property(e => e.AdminEmail).HasMaxLength(100);
+            entity.Property(e => e.AdminId).HasColumnName("AdminID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Module).HasMaxLength(100);
+            entity.Property(e => e.TargetId).HasColumnName("TargetID");
+            entity.Property(e => e.TargetType).HasMaxLength(100);
+
+            entity.HasOne(d => d.Admin).WithMany(p => p.AdminAuditLogs)
+                .HasForeignKey(d => d.AdminId)
+                .HasConstraintName("FK_AdminAuditLogs_Users");
+        });
+
         modelBuilder.Entity<Brand>(entity =>
         {
             entity.HasKey(e => e.BrandId).HasName("PK__Brands__DAD4F3BED4509BC8");
@@ -186,6 +223,24 @@ public partial class WebBadmintonContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Orders_Users");
+        });
+
+        modelBuilder.Entity<OrderDeliveryProof>(entity =>
+        {
+            entity.HasKey(e => e.ProofId).HasName("PK__OrderDel__E33C702C5A2801C8");
+
+            entity.Property(e => e.ProofId).HasColumnName("ProofID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.Property(e => e.OrderId).HasColumnName("OrderID");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.OrderDeliveryProofs)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_OrderDeliveryProofs_Orders");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>
@@ -369,6 +424,54 @@ public partial class WebBadmintonContext : DbContext
                 .HasForeignKey(d => d.ProductId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK__ProductSp__Produ__6BAEFA67");
+        });
+
+        modelBuilder.Entity<ReturnRequest>(entity =>
+        {
+            entity.HasKey(e => e.ReturnRequestId).HasName("PK__ReturnRe__0CCD25B9F9381182");
+
+            entity.Property(e => e.ReturnRequestId).HasColumnName("ReturnRequestID");
+            entity.Property(e => e.AdminNote).HasMaxLength(1000);
+            entity.Property(e => e.CustomerDescription).HasMaxLength(1000);
+            entity.Property(e => e.DetailReason).HasMaxLength(50);
+            entity.Property(e => e.MainReason).HasMaxLength(50);
+            entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.RefundAmount).HasColumnType("decimal(18, 0)");
+            entity.Property(e => e.RequestedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ReviewedAt).HasColumnType("datetime");
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .HasDefaultValue("Ch? x? lý");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.ReturnRequests)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ReturnRequests_Orders");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ReturnRequests)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ReturnRequests_Users");
+        });
+
+        modelBuilder.Entity<ReturnRequestImage>(entity =>
+        {
+            entity.HasKey(e => e.ImageId).HasName("PK__ReturnRe__7516F4EC5CEC9B1D");
+
+            entity.Property(e => e.ImageId).HasColumnName("ImageID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.ReturnRequestId).HasColumnName("ReturnRequestID");
+
+            entity.HasOne(d => d.ReturnRequest).WithMany(p => p.ReturnRequestImages)
+                .HasForeignKey(d => d.ReturnRequestId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ReturnRequestImages_ReturnRequests");
         });
 
         modelBuilder.Entity<Review>(entity =>

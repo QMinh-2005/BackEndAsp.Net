@@ -176,11 +176,27 @@ namespace MyOwnLearning.Controllers
 
         [HttpGet("admin")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetReviewsForAdmin([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] bool? isVisible = null)
+        public async Task<IActionResult> GetReviewsForAdmin(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] bool? isVisible = null,
+            [FromQuery] int? rating = null,
+            [FromQuery] int? productId = null,
+            [FromQuery] int? userId = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
         {
             try
             {
-                var (reviews, totalCount) = await _reviewService.GetReviewsForAdminAsync(page, pageSize, isVisible);
+                var (reviews, totalCount) = await _reviewService.GetReviewsForAdminAsync(
+                    page,
+                    pageSize,
+                    isVisible,
+                    rating,
+                    productId,
+                    userId,
+                    fromDate,
+                    toDate);
                 return Ok(new
                 {
                     Message = "Thành công",

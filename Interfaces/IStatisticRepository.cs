@@ -11,5 +11,9 @@ namespace MyOwnLearning.Interfaces
         Task<List<TopProductResponse>> GetTopSellingProductsAsync(StatisticsFilterRequest filter, int top = 10);
         Task<OverviewStatisticsResponse> GetOverviewAsync(StatisticsFilterRequest filter);
         Task<List<RevenueCategoryByMonth>> GetRevenueCategoryByMonthAsync(int year, int? categoryId);
+        Task<List<OrderStatusStatisticResponse>> GetOrderStatusStatisticsAsync(DateTime? fromDate, DateTime? toDate);
+        Task<List<PaymentMethodStatisticResponse>> GetRevenueByPaymentMethodAsync(DateTime? fromDate, DateTime? toDate);
+        Task<List<VoucherStatisticResponse>> GetVoucherEffectivenessAsync(DateTime? fromDate, DateTime? toDate, int top = 10);
+        Task<List<TopCustomerResponse>> GetTopCustomersAsync(DateTime? fromDate, DateTime? toDate, int top = 10);
     }
 }

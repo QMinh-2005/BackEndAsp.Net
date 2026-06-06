@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -29,6 +29,15 @@ namespace MyOwnLearning.Service
         Task<List<VoucherResponse>> GetAllVouchersForUserAsync();
         Task<bool> SaveVoucherAsync(int userId, int voucherId);
         Task<Voucher> CreateVoucherAsync(VoucherCreateRequest request);
+        Task<(List<VoucherAdminResponse> Vouchers, int TotalCount)> GetVouchersForAdminAsync(
+            string? keyword,
+            bool? isActive,
+            bool? isGlobal,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page,
+            int pageSize);
+        Task<bool> SetVoucherActiveAsync(int voucherId, bool isActive);
 
     }
 
@@ -39,7 +48,11 @@ namespace MyOwnLearning.Service
         private readonly IProductDetailRepository _productDetailRepository;
         private readonly IOrderRepository _orderRepository;
 
-        public VoucherService(IVoucherRepository voucherRepository, IUserVoucherRepository userVoucherRepository, IProductDetailRepository productDetailRepository, IOrderRepository orderRepository)
+        public VoucherService(
+            IVoucherRepository voucherRepository,
+            IUserVoucherRepository userVoucherRepository,
+            IProductDetailRepository productDetailRepository,
+            IOrderRepository orderRepository)
         {
             _voucherRepository = voucherRepository;
             _userVoucherRepository = userVoucherRepository;
@@ -341,6 +354,40 @@ namespace MyOwnLearning.Service
             await _voucherRepository.AddAsync(voucher);
             await _voucherRepository.SaveChangesAsync();
             return voucher;
+        }
+
+        public async Task<(List<VoucherAdminResponse> Vouchers, int TotalCount)> GetVouchersForAdminAsync(
+            string? keyword,
+            bool? isActive,
+            bool? isGlobal,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page,
+            int pageSize)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 100) pageSize = 100;
+
+            if (fromDate.HasValue && toDate.HasValue && fromDate.Value.Date > toDate.Value.Date)
+            {
+                throw new Exception("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+            }
+
+            return await _voucherRepository.GetVouchersForAdminAsync(
+                keyword,
+                isActive,
+                isGlobal,
+                fromDate,
+                toDate,
+                page,
+                pageSize);
+        }
+
+        public async Task<bool> SetVoucherActiveAsync(int voucherId, bool isActive)
+        {
+            return await _voucherRepository.SetVoucherActiveAsync
+                (voucherId, isActive);
         }
     }
 }

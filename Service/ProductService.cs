@@ -784,6 +784,7 @@ namespace MyOwnLearning.Service
                 .Take(pageSize)
                 .Select(s => new SerialNumberDto
                 {
+                    SerialId = s.SerialId,
                     SerialNumber = s.SerialNumber,
                     Status = s.Status,
                     ImportDate = s.ImportDate ?? DateTime.UtcNow
@@ -826,6 +827,7 @@ namespace MyOwnLearning.Service
             await _productDetailRepository.UpdateAsync(variant);
             return new SerialNumberDto
             {
+                SerialId = result.SerialId,
                 SerialNumber = result.SerialNumber,
                 Status = result.Status,
                 ImportDate = result.ImportDate ?? DateTime.UtcNow

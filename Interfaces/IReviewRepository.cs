@@ -10,7 +10,15 @@ namespace MyOwnLearning.Interfaces
         Task<Review?> GetReviewByOrderDetailIdAsync(int orderDetailId);
         Task<(List<Review> Reviews, int TotalCount)> GetReviewsByProductIdAsync(int productId, int page, int pageSize, bool includeHidden = false);
         Task<(List<Review> Reviews, int TotalCount)> GetReviewsByUserIdAsync(int userId, int page, int pageSize);
-        Task<(List<Review> Reviews, int TotalCount)> GetReviewsForAdminAsync(int page, int pageSize, bool? isVisible);
+        Task<(List<Review> Reviews, int TotalCount)> GetReviewsForAdminAsync(
+            int page,
+            int pageSize,
+            bool? isVisible,
+            int? rating,
+            int? productId,
+            int? userId,
+            DateTime? fromDate,
+            DateTime? toDate);
         Task<(List<OrderDetail> OrderDetails, int TotalCount)> GetReviewableOrderDetailsByUserIdAsync(int userId, int page, int pageSize);
         Task<double> GetAverageRatingByProductIdAsync(int productId);
     }

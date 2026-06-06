@@ -2,6 +2,7 @@
 using MyOwnLearning.Data;
 using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
+using MyOwnLearning.Models;
 using static MyOwnLearning.DTO.Request.Admin.Statistic.StatisticRequest;
 using static MyOwnLearning.DTO.Response.Admin.Statistic.StatisticResponse;
 
@@ -14,6 +15,30 @@ namespace MyOwnLearning.Repositories
         public StatisticRepository(WebBadmintonContext context)
         {
             _context = context;
+        }
+
+        private static IQueryable<Order> ApplyOrderDateFilter(IQueryable<Order> query, DateTime? fromDate, DateTime? toDate)
+        {
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(o => o.OrderDate >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var toExclusive = toDate.Value.Date.AddDays(1);
+                query = query.Where(o => o.OrderDate < toExclusive);
+            }
+
+            return query;
+        }
+
+        private static IQueryable<Order> OnlyRevenueOrders(IQueryable<Order> query)
+        {
+            return query.Where(o =>
+                o.OrderStatusId == (int)OrderStatusEnum.DaGiaoHang ||
+                o.OrderStatusId == (int)OrderStatusEnum.HoanTat);
         }
 
         // =====================================================
@@ -254,6 +279,144 @@ namespace MyOwnLearning.Repositories
                     TotalRevenue = g.Sum(od => od.UnitPrice * od.Quantity)
                 })
                 .OrderBy(r => r.Month)
+                .ToListAsync();
+        }
+
+        public async Task<List<OrderStatusStatisticResponse>> GetOrderStatusStatisticsAsync(DateTime? fromDate, DateTime? toDate)
+        {
+            var orderQuery = ApplyOrderDateFilter(_context.Orders.AsNoTracking(), fromDate, toDate);
+
+            var groupedOrders = orderQuery
+                .GroupBy(o => o.OrderStatusId)
+                .Select(g => new
+                {
+                    StatusId = g.Key,
+                    TotalOrders = g.Count(),
+                    TotalRevenue = g.Sum(o =>
+                        o.OrderStatusId == (int)OrderStatusEnum.DaGiaoHang ||
+                        o.OrderStatusId == (int)OrderStatusEnum.HoanTat
+                            ? o.FinalAmount ?? 0
+                            : 0)
+                });
+
+            var result = await _context.OrderStatuses
+                .AsNoTracking()
+                .GroupJoin(
+                    groupedOrders,
+                    status => (int?)status.OrderStatusId,
+                    orderGroup => orderGroup.StatusId,
+                    (status, orderGroups) => new OrderStatusStatisticResponse
+                    {
+                        StatusId = status.OrderStatusId,
+                        StatusName = status.StatusName,
+                        TotalOrders = orderGroups.Select(g => g.TotalOrders).FirstOrDefault(),
+                        TotalRevenue = orderGroups.Select(g => g.TotalRevenue).FirstOrDefault()
+                    })
+                .OrderBy(s => s.StatusId)
+                .ToListAsync();
+
+            var totalOrders = result.Sum(s => s.TotalOrders);
+            if (totalOrders > 0)
+            {
+                foreach (var item in result)
+                {
+                    item.OrderShare = Math.Round(item.TotalOrders * 100.0 / totalOrders, 2);
+                }
+            }
+
+            return result;
+        }
+
+        public async Task<List<PaymentMethodStatisticResponse>> GetRevenueByPaymentMethodAsync(DateTime? fromDate, DateTime? toDate)
+        {
+            var query = OnlyRevenueOrders(ApplyOrderDateFilter(_context.Orders.AsNoTracking(), fromDate, toDate))
+                .Where(o => o.Payment != null);
+
+            var result = await query
+                .GroupBy(o => o.Payment!.PaymentMethod)
+                .Select(g => new PaymentMethodStatisticResponse
+                {
+                    PaymentMethod = g.Key,
+                    TotalOrders = g.Count(),
+                    TotalRevenue = g.Sum(o => o.FinalAmount ?? 0)
+                })
+                .OrderByDescending(x => x.TotalRevenue)
+                .ToListAsync();
+
+            var totalRevenue = result.Sum(x => x.TotalRevenue);
+            if (totalRevenue > 0)
+            {
+                foreach (var item in result)
+                {
+                    item.RevenueShare = Math.Round((double)(item.TotalRevenue / totalRevenue) * 100, 2);
+                }
+            }
+
+            return result;
+        }
+
+        public async Task<List<VoucherStatisticResponse>> GetVoucherEffectivenessAsync(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            var orderQuery = OnlyRevenueOrders(ApplyOrderDateFilter(_context.Orders.AsNoTracking(), fromDate, toDate));
+
+            return await _context.OrderVouchers
+                .AsNoTracking()
+                .Where(ov => orderQuery.Any(o => o.OrderId == ov.OrderId))
+                .GroupBy(ov => new
+                {
+                    ov.VoucherId,
+                    ov.Voucher.VoucherCode,
+                    ov.Voucher.UsedCount
+                })
+                .Select(g => new VoucherStatisticResponse
+                {
+                    VoucherId = g.Key.VoucherId,
+                    VoucherCode = g.Key.VoucherCode,
+                    CurrentUsedCount = g.Key.UsedCount,
+                    TotalOrders = g.Select(ov => ov.OrderId).Distinct().Count(),
+                    TotalDiscount = g.Sum(ov => ov.AppliedDiscount),
+                    TotalRevenue = g.Sum(ov => ov.Order.FinalAmount ?? 0),
+                    AverageDiscountPerOrder = g.Select(ov => ov.OrderId).Distinct().Count() > 0
+                        ? g.Sum(ov => ov.AppliedDiscount) / g.Select(ov => ov.OrderId).Distinct().Count()
+                        : 0
+                })
+                .OrderByDescending(x => x.TotalOrders)
+                .ThenByDescending(x => x.TotalDiscount)
+                .Take(top)
+                .ToListAsync();
+        }
+
+        public async Task<List<TopCustomerResponse>> GetTopCustomersAsync(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            var query = OnlyRevenueOrders(ApplyOrderDateFilter(_context.Orders.AsNoTracking(), fromDate, toDate));
+
+            return await query
+                .GroupBy(o => new
+                {
+                    o.UserId,
+                    o.User.Email
+                })
+                .Select(g => new TopCustomerResponse
+                {
+                    UserId = g.Key.UserId,
+                    Email = g.Key.Email,
+                    FullName = _context.UserProfiles
+                        .Where(p => p.UserId == g.Key.UserId)
+                        .OrderBy(p => p.ProfileId)
+                        .Select(p => p.FullName)
+                        .FirstOrDefault(),
+                    PhoneNumber = _context.UserProfiles
+                        .Where(p => p.UserId == g.Key.UserId)
+                        .OrderBy(p => p.ProfileId)
+                        .Select(p => p.PhoneNumber)
+                        .FirstOrDefault(),
+                    TotalOrders = g.Count(),
+                    TotalSpent = g.Sum(o => o.FinalAmount ?? 0),
+                    LastOrderDate = g.Max(o => o.OrderDate)
+                })
+                .OrderByDescending(x => x.TotalSpent)
+                .ThenByDescending(x => x.TotalOrders)
+                .Take(top)
                 .ToListAsync();
         }
     }

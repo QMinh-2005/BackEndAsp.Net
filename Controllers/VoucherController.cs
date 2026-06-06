@@ -79,5 +79,59 @@ namespace MyOwnLearning.Controllers
             return Ok(new { message = "Tạo thành công Voucher", VoucherId = result.VoucherId, VoucherCode = result.VoucherCode });
         }
 
+        [HttpGet("admin")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetVouchersForAdmin(
+            string? keyword,
+            bool? isActive,
+            bool? isGlobal,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page = 1,
+            int pageSize = 10)
+        {
+            try
+            {
+                var (vouchers, totalCount) = await _voucherService.GetVouchersForAdminAsync(
+                    keyword,
+                    isActive,
+                    isGlobal,
+                    fromDate,
+                    toDate,
+                    page,
+                    pageSize);
+
+                return Ok(new
+                {
+                    Total = totalCount,
+                    Data = vouchers,
+                    Page = page,
+                    PageSize = pageSize
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("admin/{voucherId:int}/active")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> SetVoucherActive(int voucherId, [FromBody] SetActiveRequest request)
+        {
+            var updated = await _voucherService.SetVoucherActiveAsync(voucherId, request.IsActive);
+            if (!updated)
+            {
+                return NotFound(new { message = "Không tìm thấy voucher." });
+            }
+
+            return Ok(new
+            {
+                message = request.IsActive ? "Đã kích hoạt voucher." : "Đã tắt voucher.",
+                VoucherId = voucherId,
+                request.IsActive
+            });
+        }
+
     }
 }
