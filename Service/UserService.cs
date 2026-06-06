@@ -3,6 +3,7 @@ using Mapster;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MyOwnLearning.DTO.Request.Customer;
+using MyOwnLearning.DTO.Response;
 using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
@@ -20,6 +21,9 @@ namespace MyOwnLearning.Service
         Task<bool> ChangePasswordAsync(int userId, string oldPassword, string newPassword);
         Task<bool> UpdateProfileAsync(int userId, ChangeInfoRequest request);
         Task<InfoResponse?> GetInfoAsync(int id);
+        Task<bool> SetUserActiveAsync(int userId, bool isActive);
+        Task<UserDetailAdminResponse> GetUserDetailForAdminAsync(int userId);
+        Task<List<OrderResponse>> GetOrdersByUserForAdminAsync(int userId);
     }
 
     public class UserService : IUserService
@@ -187,6 +191,35 @@ namespace MyOwnLearning.Service
                 return res;
             }).ToList();
             return (userResponses, totalCount);
+        }
+
+        public async Task<bool> SetUserActiveAsync(int userId, bool isActive)
+        {
+            return await _userRepository.SetUserActiveAsync(userId, isActive);
+        }
+
+        public async Task<UserDetailAdminResponse> GetUserDetailForAdminAsync(int userId)
+        {
+            var user = await _userRepository.GetUserDetailForAdminAsync(userId);
+
+            if (user == null)
+            {
+                throw new Exception("Không tìm thấy người dùng.");
+            }
+
+            return user;
+        }
+
+        public async Task<List<OrderResponse>> GetOrdersByUserForAdminAsync(int userId)
+        {
+            var orders = await _userRepository.GetOrdersByUserForAdminAsync(userId);
+
+            if (orders == null)
+            {
+                throw new Exception("Không tìm thấy người dùng.");
+            }
+
+            return orders;
         }
     }
 }

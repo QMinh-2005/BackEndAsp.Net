@@ -79,6 +79,45 @@
             public decimal TotalRevenue { get; set; }
         }
 
+        public class OrderStatusStatisticResponse
+        {
+            public int StatusId { get; set; }
+            public string StatusName { get; set; } = string.Empty;
+            public int TotalOrders { get; set; }
+            public decimal TotalRevenue { get; set; }
+            public double OrderShare { get; set; }
+        }
+
+        public class PaymentMethodStatisticResponse
+        {
+            public string PaymentMethod { get; set; } = string.Empty;
+            public int TotalOrders { get; set; }
+            public decimal TotalRevenue { get; set; }
+            public double RevenueShare { get; set; }
+        }
+
+        public class VoucherStatisticResponse
+        {
+            public int VoucherId { get; set; }
+            public string VoucherCode { get; set; } = string.Empty;
+            public int TotalOrders { get; set; }
+            public int CurrentUsedCount { get; set; }
+            public decimal TotalDiscount { get; set; }
+            public decimal TotalRevenue { get; set; }
+            public decimal AverageDiscountPerOrder { get; set; }
+        }
+
+        public class TopCustomerResponse
+        {
+            public int UserId { get; set; }
+            public string Email { get; set; } = string.Empty;
+            public string? FullName { get; set; }
+            public string? PhoneNumber { get; set; }
+            public int TotalOrders { get; set; }
+            public decimal TotalSpent { get; set; }
+            public DateTime? LastOrderDate { get; set; }
+        }
+
         // =====================================================
         // WRAPPER RESPONSE ĐẦY ĐỦ (trả về 1 lần cho dashboard)
         // =====================================================

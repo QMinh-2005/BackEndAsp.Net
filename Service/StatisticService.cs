@@ -13,6 +13,10 @@ namespace MyOwnLearning.Service
         Task<List<TopProductResponse>> GetTopSellingProductsAsync(TopProductRequest request);
         Task<List<RevenueCategoryByMonth>> GetRevenueCategoryByMonthAsync(RevenueCategoryByMonthRequest request);
         Task<FullStatisticsReportResponse> GetFullReportAsync(StatisticsFilterRequest filter, int year);
+        Task<List<OrderStatusStatisticResponse>> GetOrderStatusStatisticsAsync(DateTime? fromDate, DateTime? toDate);
+        Task<List<PaymentMethodStatisticResponse>> GetRevenueByPaymentMethodAsync(DateTime? fromDate, DateTime? toDate);
+        Task<List<VoucherStatisticResponse>> GetVoucherEffectivenessAsync(DateTime? fromDate, DateTime? toDate, int top = 10);
+        Task<List<TopCustomerResponse>> GetTopCustomersAsync(DateTime? fromDate, DateTime? toDate, int top = 10);
     }
 
     public class StatisticService : IStatisticService
@@ -171,6 +175,48 @@ namespace MyOwnLearning.Service
                 TopProducts = await topProductTask,
                 RevenueCategoryMonthly = await categoryMonthTask
             };
+        }
+
+        public async Task<List<OrderStatusStatisticResponse>> GetOrderStatusStatisticsAsync(DateTime? fromDate, DateTime? toDate)
+        {
+            ValidateDateRange(fromDate, toDate);
+            return await _statisticRepository.GetOrderStatusStatisticsAsync(fromDate, toDate);
+        }
+
+        public async Task<List<PaymentMethodStatisticResponse>> GetRevenueByPaymentMethodAsync(DateTime? fromDate, DateTime? toDate)
+        {
+            ValidateDateRange(fromDate, toDate);
+            return await _statisticRepository.GetRevenueByPaymentMethodAsync(fromDate, toDate);
+        }
+
+        public async Task<List<VoucherStatisticResponse>> GetVoucherEffectivenessAsync(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            ValidateDateRange(fromDate, toDate);
+            ValidateTop(top);
+            return await _statisticRepository.GetVoucherEffectivenessAsync(fromDate, toDate, top);
+        }
+
+        public async Task<List<TopCustomerResponse>> GetTopCustomersAsync(DateTime? fromDate, DateTime? toDate, int top = 10)
+        {
+            ValidateDateRange(fromDate, toDate);
+            ValidateTop(top);
+            return await _statisticRepository.GetTopCustomersAsync(fromDate, toDate, top);
+        }
+
+        private static void ValidateDateRange(DateTime? fromDate, DateTime? toDate)
+        {
+            if (fromDate.HasValue && toDate.HasValue && fromDate.Value.Date > toDate.Value.Date)
+            {
+                throw new ArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+            }
+        }
+
+        private static void ValidateTop(int top)
+        {
+            if (top <= 0 || top > 100)
+            {
+                throw new ArgumentException("Top phải nằm trong khoảng 1 đến 100.");
+            }
         }
     }
 }

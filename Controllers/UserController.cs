@@ -191,5 +191,53 @@ namespace MyOwnLearning.Controllers
             }
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpPut("admin/{userId:int}/active")]
+        public async Task<IActionResult> SetUserActive(int userId, [FromBody] SetActiveRequest request)
+        {
+            var updated = await _userService.SetUserActiveAsync(userId, request.IsActive);
+            if (!updated)
+            {
+                return NotFound(new { message = "Không tìm thấy người dùng." });
+            }
+
+            return Ok(new
+            {
+                message = request.IsActive ? "Đã kích hoạt tài khoản." : "Đã khóa tài khoản.",
+                UserId = userId,
+                request.IsActive
+            });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("admin/{userId:int}")]
+        public async Task<IActionResult> GetUserDetailForAdmin(int userId)
+        {
+            try
+            {
+                var user = await _userService.GetUserDetailForAdminAsync(userId);
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("admin/{userId:int}/orders")]
+        public async Task<IActionResult> GetOrdersByUserForAdmin(int userId)
+        {
+            try
+            {
+                var orders = await _userService.GetOrdersByUserForAdminAsync(userId);
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
     }
 }

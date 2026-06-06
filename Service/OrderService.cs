@@ -1,13 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
 using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Enums;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
-using MyOwnLearning.Repositories;
 
 namespace MyOwnLearning.Service
 {
@@ -26,30 +22,6 @@ namespace MyOwnLearning.Service
 
     public class OrderService : IOrderService
     {
-        private readonly IOrderRepository _orderRepository;
-        private readonly ICartRepository _cartRepository;
-        private readonly IVoucherService _voucherService;
-        private readonly IProductDetailRepository _productDetailRepository;
-        private readonly WebBadmintonContext _context;
-
-        public OrderService(
-            IOrderRepository orderRepository,
-            ICartRepository cartRepository,
-            IVoucherService voucherService,
-            IProductDetailRepository productDetailRepository,
-            WebBadmintonContext context)
-        {
-            _orderRepository = orderRepository;
-            _cartRepository = cartRepository;
-            _voucherService = voucherService;
-            _context = context;
-            _productDetailRepository = productDetailRepository;
-        }
-
-        // =====================================================
-        // STATE MACHINE — Không đổi
-        // =====================================================
-
         private static readonly Dictionary<OrderStatusEnum, List<OrderStatusEnum>> _validTransitions = new()
         {
             { OrderStatusEnum.ChoXacNhan,   new List<OrderStatusEnum> { OrderStatusEnum.DaXacNhan, OrderStatusEnum.DaHuy } },
@@ -62,60 +34,36 @@ namespace MyOwnLearning.Service
             { OrderStatusEnum.DaHuy,        new List<OrderStatusEnum>() }
         };
 
-        private bool IsValidStatusTransition(OrderStatusEnum currentStatus, OrderStatusEnum newStatus)
-            => _validTransitions.ContainsKey(currentStatus) && _validTransitions[currentStatus].Contains(newStatus);
-
-        private async Task RevertOrderResourcesAsync(Order order)
+        private static readonly int[] CustomerCancelableStatusIds =
         {
-            foreach (var orderDetail in order.OrderDetails)
-            {
-                if (orderDetail.Detail != null)
-                {
-                    orderDetail.Detail.StockQuantity += orderDetail.Quantity;
+            (int)OrderStatusEnum.ChoXacNhan,
+            (int)OrderStatusEnum.DaXacNhan
+        };
 
-                    if (orderDetail.Detail.Product != null)
-                        orderDetail.Detail.Product.SoldQuantity -= orderDetail.Quantity;
+        private readonly IOrderRepository _orderRepository;
+        private readonly IVoucherService _voucherService;
+        private readonly IProductDetailRepository _productDetailRepository;
 
-                    _context.ProductDetails.Update(orderDetail.Detail);
-                }
-
-                var serialsToRevert = await _context.ProductSerials
-                    .Where(ps => ps.OrderDetailId == orderDetail.OrderDetailId)
-                    .ToListAsync();
-
-                foreach (var serial in serialsToRevert)
-                {
-                    serial.Status = ProductSerialStatus.InStock;
-                    serial.OrderDetailId = null;
-                }
-            }
-
-            var voucherIds = order.OrderVouchers?.Select(ov => ov.VoucherId).ToList();
-            if (voucherIds == null || !voucherIds.Any())
-                return;
-
-            foreach (var voucherId in voucherIds)
-            {
-                var voucher = await _context.Vouchers.FindAsync(voucherId);
-                if (voucher != null && voucher.UsedCount > 0)
-                    voucher.UsedCount--;
-
-                var userVoucher = await _context.UserVouchers
-                    .FirstOrDefaultAsync(uv => uv.UserId == order.UserId && uv.VoucherId == voucherId);
-
-                if (userVoucher != null && userVoucher.CurrentUsageCount > 0)
-                {
-                    userVoucher.CurrentUsageCount--;
-
-                    if (userVoucher.CurrentUsageCount == 0)
-                        userVoucher.UsedDate = null;
-                }
-            }
+        public OrderService(
+            IOrderRepository orderRepository,
+            IVoucherService voucherService,
+            IProductDetailRepository productDetailRepository)
+        {
+            _orderRepository = orderRepository;
+            _voucherService = voucherService;
+            _productDetailRepository = productDetailRepository;
         }
 
-        // =====================================================
-        // HELPER — Map Order Entity → OrderResponse DTO
-        // =====================================================
+        private static bool IsValidStatusTransition(OrderStatusEnum currentStatus, OrderStatusEnum newStatus)
+            => _validTransitions.ContainsKey(currentStatus) && _validTransitions[currentStatus].Contains(newStatus);
+
+        private static int[] GetAdminCancelableStatusIds()
+        {
+            return _validTransitions
+                .Where(x => x.Value.Contains(OrderStatusEnum.DaHuy))
+                .Select(x => (int)x.Key)
+                .ToArray();
+        }
 
         private static OrderResponse MapToResponse(Order o)
         {
@@ -136,7 +84,6 @@ namespace MyOwnLearning.Service
                 CancelledAt = o.CancelledAt,
                 CancelledByUserId = o.CancelledByUserId,
                 PaymentMethod = o.Payment?.PaymentMethod ?? "Chưa xác định",
-                // ✅ Map danh sách voucher đã áp dụng
                 AppliedVouchers = o.OrderVouchers?.Select(ov => new AppliedVoucherResponse
                 {
                     VoucherCode = ov.Voucher?.VoucherCode ?? string.Empty,
@@ -153,14 +100,10 @@ namespace MyOwnLearning.Service
                     TensionKg = od.TensionKg,
                     ProductName = od.Detail?.Product?.ProductName,
                     SerialNumbers = od.ProductSerials?.Select(ps => ps.SerialNumber).ToList()
-                                        ?? new List<string>()
+                        ?? new List<string>()
                 }).ToList()
             };
         }
-
-        // =====================================================
-        // GET
-        // =====================================================
 
         public async Task<List<OrderResponse>> GetMyOrdersAsync(int userId)
         {
@@ -175,55 +118,7 @@ namespace MyOwnLearning.Service
 
         public async Task<OrderResponse> GetOrderDetailForAdminAsync(int orderId)
         {
-            var order = await _context.Orders
-                .AsNoTracking()
-                .Where(o => o.OrderId == orderId)
-                .Select(o => new OrderResponse
-                {
-                    OrderId = o.OrderId,
-                    OrderDate = o.OrderDate,
-                    SubTotal = o.SubTotal,
-                    TotalDiscount = o.TotalDiscount,
-                    FinalAmount = o.FinalAmount,
-                    ShippingFee = o.ShippingFee,
-                    Status = o.OrderStatus != null ? o.OrderStatus.StatusName : "Chưa xác định",
-                    ReceiverName = o.ReceiverName ?? string.Empty,
-                    PhoneNumber = o.PhoneNumber,
-                    ShippingAddress = o.ShippingAddress,
-                    Note = o.Note,
-                    CancelReason = o.CancelReason,
-                    CancelledAt = o.CancelledAt,
-                    CancelledByUserId = o.CancelledByUserId,
-                    PaymentMethod = o.Payment != null ? o.Payment.PaymentMethod : "Chưa xác định",
-                    AppliedVouchers = o.OrderVouchers
-                        .Select(ov => new AppliedVoucherResponse
-                        {
-                            VoucherCode = ov.Voucher != null ? ov.Voucher.VoucherCode : string.Empty,
-                            AppliedDiscount = ov.AppliedDiscount
-                        })
-                        .ToList(),
-                    OrderDetails = o.OrderDetails
-                        .OrderBy(od => od.OrderDetailId)
-                        .Select(od => new OrderDetailResponse
-                        {
-                            OrderDetailId = od.OrderDetailId,
-                            DetailId = od.DetailId,
-                            Quantity = od.Quantity,
-                            UnitPrice = od.UnitPrice,
-                            IsStringingService = od.IsStringingService,
-                            StringBrand = od.StringBrand,
-                            TensionKg = od.TensionKg,
-                            ProductName = od.Detail != null && od.Detail.Product != null
-                                ? od.Detail.Product.ProductName
-                                : string.Empty,
-                            SerialNumbers = od.ProductSerials
-                                .Select(ps => ps.SerialNumber)
-                                .ToList()
-                        })
-                        .ToList()
-                })
-                .AsSplitQuery()
-                .FirstOrDefaultAsync();
+            var order = await _orderRepository.GetOrderDetailForAdminAsync(orderId);
 
             if (order == null)
                 throw new Exception("Không tìm thấy đơn hàng.");
@@ -242,19 +137,10 @@ namespace MyOwnLearning.Service
             return await _orderRepository.SearchOrderSummaryAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
         }
 
-        // =====================================================
-        // CREATE ORDER — Tích hợp Voucher đầy đủ
-        // =====================================================
-
-
-
-
         public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request)
         {
             try
             {
-                // --- BƯỚC 1: Validate Voucher & tính discount TRƯỚC khi tạo đơn ---
-                // ✅ VoucherService chỉ validate, không ghi DB ở bước này
                 var voucherResult = new VoucherValidationResult { IsValid = true };
 
                 if (request.VoucherIds != null && request.VoucherIds.Any())
@@ -263,37 +149,33 @@ namespace MyOwnLearning.Service
 
                     foreach (var od in request.OrderDetails)
                     {
-                        // Cần có _context hoặc Repository để lấy thông tin ProductDetail dựa trên DetailId
                         var productDetail = await _productDetailRepository.getProductDetailByIdAsync(od.DetailId);
 
-                        if (productDetail == null) throw new Exception($"Không tìm thấy sản phẩm có DetailId = {od.DetailId}");
+                        if (productDetail == null)
+                            throw new Exception($"Không tìm thấy sản phẩm có DetailId = {od.DetailId}");
 
                         tempOrderItems.Add(new OrderDetail
                         {
-                            // KHÔNG gán OrderDetailId nữa vì nó chưa tồn tại
                             DetailId = od.DetailId,
                             Quantity = od.Quantity,
-                            UnitPrice = productDetail.Price // LẤY GIÁ THẬT TỪ DATABASE VÀO ĐÂY
+                            UnitPrice = productDetail.Price
                         });
                     }
+
                     voucherResult = await _voucherService.ValidateAndCalculateDiscountAsync(
                         userId,
                         request.VoucherIds,
                         tempOrderItems,
-                        request.PaymentMethod
-                    );
+                        request.PaymentMethod);
 
                     if (!voucherResult.IsValid)
                         throw new InvalidOperationException(voucherResult.ErrorMessage);
                 }
 
-                // --- BƯỚC 2: Gọi Repository tạo đơn hàng, truyền vào voucher details ---
-                // Repository sẽ ghi Order + OrderVoucher + lượt dùng voucher trong cùng một transaction.
                 var order = await _orderRepository.CreateOrderAsync(
                     userId,
                     request,
-                    voucherResult.AppliedVoucherDetails
-                );
+                    voucherResult.AppliedVoucherDetails);
 
                 return MapToResponse(order);
             }
@@ -303,21 +185,20 @@ namespace MyOwnLearning.Service
             }
         }
 
-        // =====================================================
-        // UPDATE STATUS
-        // =====================================================
-
         public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId)
         {
-            var order = await _orderRepository.GetOrderByIdAsync(orderId);
-
             if (!Enum.IsDefined(typeof(OrderStatusEnum), newStatusId))
                 throw new ArgumentException("Trạng thái mới không hợp lệ.");
 
             if (newStatusId == (int)OrderStatusEnum.DaHuy)
                 throw new InvalidOperationException("Vui lòng dùng API hủy đơn để nhập và lưu lý do hủy.");
 
-            var currentStatus = (OrderStatusEnum)order.OrderStatusId;
+            var currentStatusId = await _orderRepository.GetOrderStatusIdAsync(orderId);
+
+            if (!currentStatusId.HasValue)
+                throw new Exception("Không tìm thấy đơn hàng.");
+
+            var currentStatus = (OrderStatusEnum)currentStatusId.Value;
             var nextStatus = (OrderStatusEnum)newStatusId;
 
             if (currentStatus == nextStatus)
@@ -330,40 +211,21 @@ namespace MyOwnLearning.Service
             return MapToResponse(updatedOrder);
         }
 
-        // =====================================================
-        // CANCEL MY ORDER — Thêm hoàn lại lượt dùng Voucher
-        // =====================================================
-
         public async Task<OrderResponse> CancelMyOrderAsync(int orderId, int userId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var order = await _orderRepository.GetOrderByIdAndUserIdAsync(orderId, userId);
+                var order = await _orderRepository.CancelOrderAsync(
+                    orderId,
+                    userId,
+                    userId,
+                    "Khách hàng yêu cầu hủy đơn.",
+                    CustomerCancelableStatusIds);
 
-                if (order.OrderStatusId == (int)OrderStatusEnum.DaHuy)
-                    throw new InvalidOperationException("Đơn hàng đã được hủy trước đó.");
-
-                if (order.OrderStatusId != (int)OrderStatusEnum.ChoXacNhan &&
-                    order.OrderStatusId != (int)OrderStatusEnum.DaXacNhan)
-                    throw new InvalidOperationException("Chỉ có thể hủy đơn hàng khi đang ở trạng thái 'Chờ xác nhận' hoặc 'Đã xác nhận'.");
-
-                await RevertOrderResourcesAsync(order);
-
-                order.OrderStatusId = (int)OrderStatusEnum.DaHuy;
-                order.CancelReason = "Khách hàng yêu cầu hủy đơn.";
-                order.CancelledAt = DateTime.UtcNow;
-                order.CancelledByUserId = userId;
-                await _orderRepository.UpdateAsync(order);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
                 return MapToResponse(order);
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 throw new Exception("Đã xảy ra lỗi khi hủy đơn hàng: " + ex.Message);
             }
         }
@@ -373,35 +235,19 @@ namespace MyOwnLearning.Service
             if (string.IsNullOrWhiteSpace(reason))
                 throw new ArgumentException("Vui lòng nhập lý do hủy đơn.");
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var order = await _orderRepository.GetOrderByIdAsync(orderId);
+                var order = await _orderRepository.CancelOrderAsync(
+                    orderId,
+                    null,
+                    adminId,
+                    reason,
+                    GetAdminCancelableStatusIds());
 
-                if (order.OrderStatusId == (int)OrderStatusEnum.DaHuy)
-                    throw new InvalidOperationException("Đơn hàng đã được hủy trước đó.");
-
-                var currentStatus = (OrderStatusEnum)order.OrderStatusId;
-                if (!IsValidStatusTransition(currentStatus, OrderStatusEnum.DaHuy))
-                    throw new InvalidOperationException($"Không thể hủy đơn hàng khi đang ở trạng thái {currentStatus}.");
-
-                await RevertOrderResourcesAsync(order);
-
-                order.OrderStatusId = (int)OrderStatusEnum.DaHuy;
-                order.CancelReason = reason.Trim();
-                order.CancelledAt = DateTime.UtcNow;
-                order.CancelledByUserId = adminId;
-
-                await _orderRepository.UpdateAsync(order);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                await _context.Entry(order).Reference(o => o.OrderStatus).LoadAsync();
                 return MapToResponse(order);
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 throw new Exception("Đã xảy ra lỗi khi Admin hủy đơn hàng: " + ex.Message);
             }
         }

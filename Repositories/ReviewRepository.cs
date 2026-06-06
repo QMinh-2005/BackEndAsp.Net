@@ -81,13 +81,52 @@ namespace MyOwnLearning.Repositories
             return (reviews, totalCount);
         }
 
-        public async Task<(List<Review> Reviews, int TotalCount)> GetReviewsForAdminAsync(int page, int pageSize, bool? isVisible)
+        public async Task<(List<Review> Reviews, int TotalCount)> GetReviewsForAdminAsync(
+            int page,
+            int pageSize,
+            bool? isVisible,
+            int? rating,
+            int? productId,
+            int? userId,
+            DateTime? fromDate,
+            DateTime? toDate)
         {
-            var query = BaseReviewQuery();
+            var query = BaseReviewQuery().AsNoTracking();
 
             if (isVisible.HasValue)
             {
                 query = query.Where(r => r.IsVisible == isVisible.Value);
+            }
+
+            if (rating.HasValue)
+            {
+                query = query.Where(r => r.Rating == rating.Value);
+            }
+
+            if (productId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.OrderDetail.Detail != null &&
+                    r.OrderDetail.Detail.ProductId == productId.Value);
+            }
+
+            if (userId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.OrderDetail.Order != null &&
+                    r.OrderDetail.Order.UserId == userId.Value);
+            }
+
+            if (fromDate.HasValue)
+            {
+                var startDate = fromDate.Value.Date;
+                query = query.Where(r => r.ReviewDate >= startDate);
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDate = toDate.Value.Date.AddDays(1);
+                query = query.Where(r => r.ReviewDate < endDate);
             }
 
             var totalCount = await query.CountAsync();
@@ -152,7 +191,8 @@ namespace MyOwnLearning.Repositories
                             .ThenInclude(u => u.UserProfiles)
                 .Include(r => r.OrderDetail)
                     .ThenInclude(od => od.Detail)
-                        .ThenInclude(d => d.Product);
+                        .ThenInclude(d => d.Product)
+                .AsSplitQuery();
         }
     }
 }

@@ -35,6 +35,8 @@ public partial class Order
 
     public int? CancelledByUserId { get; set; }
 
+    public virtual ICollection<OrderDeliveryProof> OrderDeliveryProofs { get; set; } = new List<OrderDeliveryProof>();
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
 
     public virtual OrderStatus? OrderStatus { get; set; }
@@ -42,6 +44,8 @@ public partial class Order
     public virtual ICollection<OrderVoucher> OrderVouchers { get; set; } = new List<OrderVoucher>();
 
     public virtual Payment? Payment { get; set; }
+
+    public virtual ICollection<ReturnRequest> ReturnRequests { get; set; } = new List<ReturnRequest>();
 
     public virtual ICollection<ServiceTicket> ServiceTickets { get; set; } = new List<ServiceTicket>();
 

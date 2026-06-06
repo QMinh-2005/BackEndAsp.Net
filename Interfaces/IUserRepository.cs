@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using MyOwnLearning.DTO.Response;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Models;
 
 namespace MyOwnLearning.Interfaces
@@ -11,5 +12,8 @@ namespace MyOwnLearning.Interfaces
         Task<List<Role>> GetRolesByNamesAsync(IEnumerable<string> roles);
         Task<bool> IsExistEmailAsync(string email);
         Task<User> GetUserWithProfileAsync(int userId);
+        Task<bool> SetUserActiveAsync(int userId, bool isActive);
+        Task<UserDetailAdminResponse?> GetUserDetailForAdminAsync(int userId);
+        Task<List<OrderResponse>?> GetOrdersByUserForAdminAsync(int userId);
     }
 }

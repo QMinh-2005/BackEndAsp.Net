@@ -12,7 +12,15 @@ namespace MyOwnLearning.Service
         Task<(List<ReviewResponse> Reviews, double AverageRating, int TotalCount)> GetReviewsByProductIdAsync(int productId, int page, int pageSize);
         Task<(List<ReviewResponse> Reviews, int TotalCount)> GetMyReviewsAsync(int userId, int page, int pageSize);
         Task<(List<ReviewableOrderDetailResponse> Items, int TotalCount)> GetMyReviewableOrderDetailsAsync(int userId, int page, int pageSize);
-        Task<(List<ReviewResponse> Reviews, int TotalCount)> GetReviewsForAdminAsync(int page, int pageSize, bool? isVisible);
+        Task<(List<ReviewResponse> Reviews, int TotalCount)> GetReviewsForAdminAsync(
+            int page,
+            int pageSize,
+            bool? isVisible,
+            int? rating,
+            int? productId,
+            int? userId,
+            DateTime? fromDate,
+            DateTime? toDate);
         Task<ReviewResponse> CreateReviewAsync(int userId, CreateReviewRequest request);
         Task<ReviewResponse> UpdateMyReviewAsync(int userId, int reviewId, UpdateReviewRequest request);
         Task<bool> DeleteMyReviewAsync(int userId, int reviewId);
@@ -65,11 +73,30 @@ namespace MyOwnLearning.Service
             return (orderDetails.Select(MapToReviewableResponse).ToList(), totalCount);
         }
 
-        public async Task<(List<ReviewResponse> Reviews, int TotalCount)> GetReviewsForAdminAsync(int page, int pageSize, bool? isVisible)
+        public async Task<(List<ReviewResponse> Reviews, int TotalCount)> GetReviewsForAdminAsync(
+            int page,
+            int pageSize,
+            bool? isVisible,
+            int? rating,
+            int? productId,
+            int? userId,
+            DateTime? fromDate,
+            DateTime? toDate)
         {
             ValidatePaging(page, pageSize);
 
-            var (reviews, totalCount) = await _reviewRepository.GetReviewsForAdminAsync(page, pageSize, isVisible);
+            if (rating.HasValue && (rating.Value < 1 || rating.Value > 5))
+                throw new ArgumentException("Rating phải nằm trong khoảng 1 đến 5.");
+
+            var (reviews, totalCount) = await _reviewRepository.GetReviewsForAdminAsync(
+                page,
+                pageSize,
+                isVisible,
+                rating,
+                productId,
+                userId,
+                fromDate,
+                toDate);
             return (reviews.Select(MapToResponse).ToList(), totalCount);
         }
 
