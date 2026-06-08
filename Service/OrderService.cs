@@ -1,3 +1,4 @@
+using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
 using MyOwnLearning.DTO.Response.Admin;
@@ -13,7 +14,7 @@ namespace MyOwnLearning.Service
         Task<OrderResponse> GetOrderDetailForAdminAsync(int orderId);
         Task<List<OrderResponse>> GetMyOrdersAsync(int userId);
         Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request);
-        Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId);
+        Task<OrderResponse> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusRequest request);
         Task<OrderResponse> CancelMyOrderAsync(int orderId, int userId);
         Task<OrderResponse> CancelOrderByAdminAsync(int orderId, int adminId, string reason);
         Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
@@ -31,7 +32,10 @@ namespace MyOwnLearning.Service
             { OrderStatusEnum.DangGiaoHang, new List<OrderStatusEnum> { OrderStatusEnum.DaGiaoHang, OrderStatusEnum.DaHuy } },
             { OrderStatusEnum.DaGiaoHang,   new List<OrderStatusEnum> { OrderStatusEnum.HoanTat } },
             { OrderStatusEnum.HoanTat,      new List<OrderStatusEnum>() },
-            { OrderStatusEnum.DaHuy,        new List<OrderStatusEnum>() }
+            { OrderStatusEnum.DaHuy,        new List<OrderStatusEnum>() },
+            { OrderStatusEnum.DangYeuCauTraHangHoanTien, new List<OrderStatusEnum>() },
+            { OrderStatusEnum.DaChapThuanTraHangHoanTien, new List<OrderStatusEnum>() },
+            { OrderStatusEnum.DaHoanHangHoanTien, new List<OrderStatusEnum>() }
         };
 
         private static readonly int[] CustomerCancelableStatusIds =
@@ -75,6 +79,7 @@ namespace MyOwnLearning.Service
                 TotalDiscount = o.TotalDiscount,
                 FinalAmount = o.FinalAmount,
                 ShippingFee = o.ShippingFee,
+                StatusId = o.OrderStatusId,
                 Status = o.OrderStatus?.StatusName ?? "Chưa xác định",
                 ReceiverName = o.ReceiverName,
                 PhoneNumber = o.PhoneNumber,
@@ -185,8 +190,13 @@ namespace MyOwnLearning.Service
             }
         }
 
-        public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, int newStatusId)
+        public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusRequest request)
         {
+            if (request == null)
+                throw new ArgumentException("Dữ liệu cập nhật trạng thái không hợp lệ.");
+
+            var newStatusId = request.NewOrderStatusId;
+
             if (!Enum.IsDefined(typeof(OrderStatusEnum), newStatusId))
                 throw new ArgumentException("Trạng thái mới không hợp lệ.");
 
@@ -207,7 +217,28 @@ namespace MyOwnLearning.Service
             if (!IsValidStatusTransition(currentStatus, nextStatus))
                 throw new InvalidOperationException($"Không thể chuyển trạng thái từ {currentStatus} sang {nextStatus}.");
 
-            var updatedOrder = await _orderRepository.UpdateStatusOrderAsync(orderId, newStatusId);
+            OrderDeliveryProof? deliveryProof = null;
+            if (nextStatus == OrderStatusEnum.DaGiaoHang)
+            {
+                if (string.IsNullOrWhiteSpace(request.DeliveryProofImageUrl))
+                    throw new ArgumentException("Vui lòng gửi ảnh minh chứng giao hàng thành công khi cập nhật đơn sang trạng thái Đã giao hàng.");
+
+                deliveryProof = new OrderDeliveryProof
+                {
+                    OrderId = orderId,
+                    ImageUrl = request.DeliveryProofImageUrl.Trim(),
+                    Note = string.IsNullOrWhiteSpace(request.DeliveryProofNote)
+                        ? "Đơn hàng đã giao thành công."
+                        : request.DeliveryProofNote.Trim(),
+                    CreatedAt = DateTime.UtcNow
+                };
+            }
+            else if (!string.IsNullOrWhiteSpace(request.DeliveryProofImageUrl))
+            {
+                throw new ArgumentException("Chỉ được gửi ảnh minh chứng khi cập nhật đơn sang trạng thái Đã giao hàng.");
+            }
+
+            var updatedOrder = await _orderRepository.UpdateStatusOrderAsync(orderId, newStatusId, deliveryProof);
             return MapToResponse(updatedOrder);
         }
 

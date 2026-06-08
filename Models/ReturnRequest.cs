@@ -27,6 +27,8 @@ public partial class ReturnRequest
 
     public decimal? RefundAmount { get; set; }
 
+    public int? OriginalOrderStatusId { get; set; }
+
     public virtual Order Order { get; set; } = null!;
 
     public virtual ICollection<ReturnRequestImage> ReturnRequestImages { get; set; } = new List<ReturnRequestImage>();

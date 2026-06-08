@@ -7,6 +7,7 @@ namespace MyOwnLearning.DTO.Response.Admin
         public string? ReceiverName { get; set; }
         public string PhoneNumber { get; set; } = string.Empty;
         public decimal? FinalAmount { get; set; }
+        public int? StatusId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string PaymentMethod { get; set; } = string.Empty;
         public string FirstProductName { get; set; } = string.Empty;

@@ -9,6 +9,9 @@
         DangGiaoHang = 5,
         DaGiaoHang = 6,
         HoanTat = 7,
-        DaHuy = 8
+        DaHuy = 8,
+        DangYeuCauTraHangHoanTien = 9,
+        DaChapThuanTraHangHoanTien = 10,
+        DaHoanHangHoanTien = 11
     }
 }

@@ -15,7 +15,7 @@ namespace MyOwnLearning.Interfaces
         Task<Order> GetOrderByIdAsync(int orderId);
         Task<int?> GetOrderStatusIdAsync(int orderId);
         Task<OrderResponse?> GetOrderDetailForAdminAsync(int orderId);
-        Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId);
+        Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId, OrderDeliveryProof? deliveryProof = null);
         Task<Order> CancelOrderAsync(int orderId, int? userId, int cancelledByUserId, string reason, IReadOnlyCollection<int> allowedStatusIds);
         Task<Order> GetOrderByIdAndUserIdAsync(int orderId, int userId);
         Task<(List<Order> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);

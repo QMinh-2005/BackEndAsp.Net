@@ -7,6 +7,7 @@
         public decimal? SubTotal { get; set; }
         public decimal? TotalDiscount { get; set; } // THÊM MỚI
         public decimal? FinalAmount { get; set; }
+        public int? StatusId { get; set; }
         public string? Status { get; set; }
         public decimal? ShippingFee { get; set; }
         public string ReceiverName { get; set; }

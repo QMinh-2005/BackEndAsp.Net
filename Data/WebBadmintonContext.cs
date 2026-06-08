@@ -436,6 +436,7 @@ public partial class WebBadmintonContext : DbContext
             entity.Property(e => e.DetailReason).HasMaxLength(50);
             entity.Property(e => e.MainReason).HasMaxLength(50);
             entity.Property(e => e.OrderId).HasColumnName("OrderID");
+            entity.Property(e => e.OriginalOrderStatusId).HasColumnName("OriginalOrderStatusID");
             entity.Property(e => e.RefundAmount).HasColumnType("decimal(18, 0)");
             entity.Property(e => e.RequestedAt)
                 .HasDefaultValueSql("(getdate())")
