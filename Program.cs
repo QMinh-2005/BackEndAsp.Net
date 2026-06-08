@@ -56,6 +56,8 @@ builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IAdminManagementRepository, AdminManagementRepository>();
 builder.Services.AddScoped<IAdminManagementService, AdminManagementService>();
+builder.Services.AddScoped<IReturnRequestRepository, ReturnRequestRepository>();
+builder.Services.AddScoped<IReturnRequestService, ReturnRequestService>();
 
 builder.Services.AddOcelot();
 builder.Services.AddAuthentication(options =>

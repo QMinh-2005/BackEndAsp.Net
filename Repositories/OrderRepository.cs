@@ -40,6 +40,7 @@ namespace MyOwnLearning.Repositories
                 ReceiverName = o.ReceiverName,
                 PhoneNumber = o.PhoneNumber,
                 FinalAmount = o.FinalAmount,
+                StatusId = o.OrderStatusId,
                 Status = o.OrderStatus != null ? o.OrderStatus.StatusName : "Chưa xác định",
                 PaymentMethod = o.Payment != null ? o.Payment.PaymentMethod : "Chưa xác định",
                 FirstProductName = o.OrderDetails
@@ -62,6 +63,7 @@ namespace MyOwnLearning.Repositories
                 SubTotal = o.SubTotal,
                 TotalDiscount = o.TotalDiscount,
                 FinalAmount = o.FinalAmount,
+                StatusId = o.OrderStatusId,
                 ShippingFee = o.ShippingFee,
                 Status = o.OrderStatus != null ? o.OrderStatus.StatusName : "Chưa xác định",
                 ReceiverName = o.ReceiverName ?? string.Empty,
@@ -508,7 +510,7 @@ namespace MyOwnLearning.Repositories
             }
         }
 
-        public async Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId)
+        public async Task<Order> UpdateStatusOrderAsync(int orderId, int newStatusId, OrderDeliveryProof? deliveryProof = null)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -526,6 +528,17 @@ namespace MyOwnLearning.Repositories
                     await RevertOrderResourcesAsync(order);
 
                 order.OrderStatusId = newStatusId;
+
+                if (deliveryProof != null)
+                {
+                    var alreadyHasProof = await _context.OrderDeliveryProofs
+                        .AsNoTracking()
+                        .AnyAsync(p => p.OrderId == orderId);
+
+                    if (!alreadyHasProof)
+                        await _context.OrderDeliveryProofs.AddAsync(deliveryProof);
+                }
+
                 await _context.SaveChangesAsync();
 
                 _context.Entry(order).Reference(o => o.OrderStatus).IsLoaded = false;

@@ -147,11 +147,11 @@ namespace MyOwnLearning.Controllers
         }
         [HttpPut("updateStatus/{orderId}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateOrderStatus(int orderId, [FromBody] int newOrderStatusId)
+        public async Task<IActionResult> UpdateOrderStatus(int orderId, [FromBody] UpdateOrderStatusRequest request)
         {
             try
             {
-                var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, newOrderStatusId);
+                var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, request);
                 return Ok(updatedOrder);
             }
             catch (Exception ex)
