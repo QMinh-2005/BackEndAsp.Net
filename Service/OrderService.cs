@@ -29,7 +29,7 @@ namespace MyOwnLearning.Service
             { OrderStatusEnum.DaXacNhan,    new List<OrderStatusEnum> { OrderStatusEnum.DangXuLy, OrderStatusEnum.DangDanLuoi, OrderStatusEnum.DaHuy } },
             { OrderStatusEnum.DangXuLy,     new List<OrderStatusEnum> { OrderStatusEnum.DangGiaoHang, OrderStatusEnum.DaHuy } },
             { OrderStatusEnum.DangDanLuoi,  new List<OrderStatusEnum> { OrderStatusEnum.DangXuLy, OrderStatusEnum.DangGiaoHang } },
-            { OrderStatusEnum.DangGiaoHang, new List<OrderStatusEnum> { OrderStatusEnum.DaGiaoHang, OrderStatusEnum.DaHuy } },
+            { OrderStatusEnum.DangGiaoHang, new List<OrderStatusEnum> { OrderStatusEnum.DaGiaoHang} },
             { OrderStatusEnum.DaGiaoHang,   new List<OrderStatusEnum> { OrderStatusEnum.HoanTat } },
             { OrderStatusEnum.HoanTat,      new List<OrderStatusEnum>() },
             { OrderStatusEnum.DaHuy,        new List<OrderStatusEnum>() },
