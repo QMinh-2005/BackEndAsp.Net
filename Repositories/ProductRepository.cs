@@ -136,7 +136,7 @@ namespace MyOwnLearning.Repositories
                     .ThenInclude(d => d.ProductSerials)
                 .FirstOrDefaultAsync(p => p.ProductId == productId);
         }
-        public async Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize)
+        public async Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int? minPrice, int? maxPrice, int page, int pageSize)
         {
             var query = _dbset
                 .Include(p => p.Brand)
@@ -155,6 +155,15 @@ namespace MyOwnLearning.Repositories
             {
                 query = query.Where(p => p.BrandId == brandId.Value);
             }
+            if (minPrice.HasValue)
+            {
+                query = query.Where(p => p.BasePrice > minPrice.Value);
+            }
+            if (maxPrice.HasValue)
+            {
+                query = query.Where(p => p.BasePrice < maxPrice.Value);
+            }
+
             var totalCount = await query.CountAsync();
             var products = await query
                 .OrderByDescending(p => p.ProductId)

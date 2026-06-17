@@ -118,11 +118,11 @@ namespace MyOwnLearning.Controllers
         //Hàm tạo một sản phẩm => CÓ thể cho admin nhập tay trong hệ thống
         [HttpGet("product-management")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetProductsForManagement([FromQuery] string? keyword, [FromQuery] int? categoryId, [FromQuery] int? brandId, int page = 1, int pagesize = 12)
+        public async Task<IActionResult> GetProductsForManagement([FromQuery] string? keyword, [FromQuery] int? categoryId, [FromQuery] int? brandId, int? minPrice, int? maxPrice, int page = 1, int pagesize = 12)
         {
             try
             {
-                var (products, totalCount) = await _productService.GetProductsForAdminAsync(keyword, categoryId, brandId, page, pagesize);
+                var (products, totalCount) = await _productService.GetProductsForAdminAsync(keyword, categoryId, brandId, minPrice, maxPrice, page, pagesize);
                 return Ok(new
                 {
                     Message = "Thành công",

@@ -21,7 +21,7 @@ namespace MyOwnLearning.Service
         Task<ProductDetailResponse?> GetProductDetailAsync(string slug);
 
         //Trang 1
-        Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int? minPrice, int? maxPrice, int page, int pageSize);
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
         Task<bool> DeleteProductAsync(int productId);
@@ -177,9 +177,9 @@ namespace MyOwnLearning.Service
         }
 
         //add 1 sản phẩm
-        public async Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brand, int page, int pageSize)
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brand, int? minPrice, int? maxPrice, int page, int pageSize)
         {
-            var (products, totalCount) = await _productRepository.GetProductsForAdminAsync(keyword, categoryId, brand, page, pageSize);
+            var (products, totalCount) = await _productRepository.GetProductsForAdminAsync(keyword, categoryId, brand, minPrice, maxPrice, page, pageSize);
             var response = products.Select(p => new ProductAdminResponse
             {
                 ProductId = p.ProductId,
