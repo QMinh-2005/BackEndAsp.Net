@@ -432,11 +432,12 @@ namespace MyOwnLearning.Controllers
 
         [HttpPost("{productId}/management-images")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AddProductImage(int productId, [FromBody] CreateProductImageRequest request)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AddProductImage(int productId, IFormFile file, [FromForm] bool isMain = false)
         {
             try
             {
-                var newImage = await _productService.AddProductImageAsync(productId, request.ImageUrl, request.IsMain);
+                var newImage = await _productService.AddProductImageAsync(productId, file, isMain);
                 return Ok(new { Message = "Thêm ảnh vào bộ sưu tập thành công!", Data = newImage });
             }
             catch (Exception ex)

@@ -114,11 +114,12 @@ namespace MyOwnLearning.Controllers
 
         [HttpPost("admin/orders/{orderId:int}/delivery-proofs")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AddDeliveryProof(int orderId, [FromBody] AddDeliveryProofRequest request)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AddDeliveryProof(int orderId, IFormFile file, [FromForm] string? note = null)
         {
             try
             {
-                var proof = await _returnRequestService.AddDeliveryProofAsync(orderId, request);
+                var proof = await _returnRequestService.AddDeliveryProofAsync(orderId, file, note);
                 return Ok(new { Message = "Thêm ảnh minh chứng giao hàng thành công.", Data = proof });
             }
             catch (KeyNotFoundException ex)

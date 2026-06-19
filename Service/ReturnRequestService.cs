@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response.Customer;
@@ -11,7 +13,7 @@ namespace MyOwnLearning.Service
     {
         Task<List<ReturnReasonResponse>> GetReturnReasonsAsync();
         Task<List<DeliveryProofResponse>> GetDeliveryProofsAsync(int orderId, int userId, bool isAdmin);
-        Task<DeliveryProofResponse> AddDeliveryProofAsync(int orderId, AddDeliveryProofRequest request);
+        Task<DeliveryProofResponse> AddDeliveryProofAsync(int orderId, IFormFile file, string? note);
         Task<ReturnRequestResponse> CreateReturnRequestAsync(int userId, CreateReturnRequest request);
         Task<(List<ReturnRequestResponse> Requests, int TotalCount)> GetMyReturnRequestsAsync(int userId, int page, int pageSize);
         Task<ReturnRequestResponse> GetMyReturnRequestDetailAsync(int userId, int returnRequestId);
@@ -32,10 +34,12 @@ namespace MyOwnLearning.Service
     public class ReturnRequestService : IReturnRequestService
     {
         private readonly IReturnRequestRepository _returnRequestRepository;
+        private readonly IWebHostEnvironment _env;
 
-        public ReturnRequestService(IReturnRequestRepository returnRequestRepository)
+        public ReturnRequestService(IReturnRequestRepository returnRequestRepository, IWebHostEnvironment env)
         {
             _returnRequestRepository = returnRequestRepository;
+            _env = env;
         }
 
         public Task<List<ReturnReasonResponse>> GetReturnReasonsAsync()
@@ -52,19 +56,28 @@ namespace MyOwnLearning.Service
             return proofs.Select(MapDeliveryProof).ToList();
         }
 
-        public async Task<DeliveryProofResponse> AddDeliveryProofAsync(int orderId, AddDeliveryProofRequest request)
+        public async Task<DeliveryProofResponse> AddDeliveryProofAsync(int orderId, IFormFile file, string? note)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.ImageUrl))
-                throw new ArgumentException("Vui lòng nhập đường dẫn ảnh minh chứng giao hàng.");
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("Vui lòng chọn file ảnh minh chứng giao hàng.");
 
             if (!await _returnRequestRepository.CanAddDeliveryProofAsync(orderId))
                 throw new InvalidOperationException("Chỉ có thể thêm minh chứng giao hàng khi đơn ở trạng thái Đã giao hàng hoặc Hoàn tất.");
 
+            // Lưu file vào wwwroot/uploads/delivery-proofs/
+            var uploadDir = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "delivery-proofs");
+            Directory.CreateDirectory(uploadDir);
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var fileName = $"{Guid.NewGuid()}{ext}";
+            var filePath = Path.Combine(uploadDir, fileName);
+            await using (var stream = File.Create(filePath))
+                await file.CopyToAsync(stream);
+
             var proof = await _returnRequestRepository.AddDeliveryProofAsync(new OrderDeliveryProof
             {
-                OrderId = orderId,
-                ImageUrl = request.ImageUrl.Trim(),
-                Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+                OrderId   = orderId,
+                ImageUrl  = $"/uploads/delivery-proofs/{fileName}",
+                Note      = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
                 CreatedAt = DateTime.UtcNow
             });
 

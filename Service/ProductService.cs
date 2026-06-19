@@ -44,7 +44,7 @@ namespace MyOwnLearning.Service
 
         //Quản lý Image
         Task<List<ProductImageResponse>> GetProductImagesAsync(int productId);
-        Task<ProductImageResponse> AddProductImageAsync(int productId, string imageUrl, bool isMain);
+        Task<ProductImageResponse> AddProductImageAsync(int productId, IFormFile file, bool isMain);
         Task<bool> SetMainImageAsync(int productId, int imageId);
         Task<bool> UpdateImagesOrderAsync(int productId, List<UpdateImageOrderRequest> requests);
         Task<bool> DeleteImageAsync(int imageId);
@@ -57,8 +57,9 @@ namespace MyOwnLearning.Service
         private readonly IBrandRepository _brandRepository;
         private readonly IProductSerialRepository _productSerialRepository;
         private readonly IProductImageRepository _productImageRepository;
+        private readonly IWebHostEnvironment _env;
 
-        public ProductService(IProductRepository productRepository, IProductDetailRepository productDetailRepository, ICategoryRepository categoryRepository, IBrandRepository brandRepository, IProductSerialRepository productSerialRepository, IProductImageRepository productImageRepository)
+        public ProductService(IProductRepository productRepository, IProductDetailRepository productDetailRepository, ICategoryRepository categoryRepository, IBrandRepository brandRepository, IProductSerialRepository productSerialRepository, IProductImageRepository productImageRepository, IWebHostEnvironment env)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
@@ -66,6 +67,7 @@ namespace MyOwnLearning.Service
             _productSerialRepository = productSerialRepository;
             _productDetailRepository = productDetailRepository;
             _productImageRepository = productImageRepository;
+            _env = env;
         }
 
         public string NormalizeProductName(string categoryName, string inputProductName)
@@ -847,10 +849,23 @@ namespace MyOwnLearning.Service
             }).ToList();
         }
 
-        public async Task<ProductImageResponse> AddProductImageAsync(int productId, string imageUrl, bool isMain)
+        public async Task<ProductImageResponse> AddProductImageAsync(int productId, IFormFile file, bool isMain)
         {
+            if (file == null || file.Length == 0)
+                throw new Exception("Vui lòng chọn file ảnh.");
+
             var product = await _productRepository.GetByIdAsync(productId);
             if (product == null) throw new Exception("Sản phẩm không tồn tại.");
+
+            // Lưu file vào wwwroot/uploads/products/
+            var uploadDir = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "products");
+            Directory.CreateDirectory(uploadDir);
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var fileName = $"{Guid.NewGuid()}{ext}";
+            var filePath = Path.Combine(uploadDir, fileName);
+            await using (var stream = File.Create(filePath))
+                await file.CopyToAsync(stream);
+            var imageUrl = $"/uploads/products/{fileName}";
 
             // Lấy danh sách ảnh hiện tại xếp theo thứ tự tăng dần
             var images = await _productImageRepository.GetByProductIdAsync(productId);

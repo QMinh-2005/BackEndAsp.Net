@@ -2,6 +2,7 @@
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Response.Admin;
@@ -102,6 +103,15 @@ if (app.Environment.IsDevelopment())
 //app.UseHttpsRedirection();
 
 
+// Serve files từ wwwroot/ — dùng PhysicalFileProvider tường minh để tránh lỗi
+// khi folder chưa tồn tại lúc app khởi động lần đầu
+var wwwrootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(wwwrootPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(wwwrootPath),
+    RequestPath = ""
+});
 app.UseCors("AllowAll");
 app.UseAuthentication();
 
