@@ -15,7 +15,7 @@ namespace MyOwnLearning.Repositories
             _context = context;
         }
 
-        public async Task<List<LowStockVariantResponse>> GetLowStockVariantsAsync(int threshold = 5)
+        public async Task<(List<LowStockVariantResponse> Items, int TotalCount)> GetLowStockVariantsAsync(int threshold = 5)
         {
             var variants = await _context.ProductDetails
                 .AsNoTracking()
@@ -36,8 +36,8 @@ namespace MyOwnLearning.Repositories
                     StockQuantity = d.StockQuantity ?? 0
                 })
                 .ToListAsync();
-
-            return variants.Select(v => new LowStockVariantResponse
+            var totalCount = variants.Count;
+            return (variants.Select(v => new LowStockVariantResponse
             {
                 DetailId = v.DetailId,
                 ProductId = v.ProductId,
@@ -47,85 +47,53 @@ namespace MyOwnLearning.Repositories
                 Price = v.Price,
                 StockQuantity = v.StockQuantity,
                 Threshold = threshold
-            }).ToList();
+            }).ToList(), totalCount);
         }
 
-        public async Task<List<VariantSerialsResponse>> GetSerialsByStatusAsync(string status, int page, int pageSize)
+        public async Task<(List<InventorySerialResponse> Items, int TotalCount)> GetSerialsByStatusAsync(string status, int page, int pageSize)
         {
             var normalizedStatus = ProductSerialStatus.Normalized(status);
 
-            var serialRows = await _context.ProductSerials
+            var serials = await _context.ProductSerials
+        .AsNoTracking()
+        .Where(s => s.Status == normalizedStatus)
+        .OrderByDescending(s => s.ImportDate)
+        .ThenByDescending(s => s.SerialId)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(s => new
+        {
+            s.SerialId,
+            s.SerialNumber,
+            s.Status,
+            s.ImportDate,
+            s.DetailId,
+            s.Detail.ProductId,
+            s.Detail.Product.ProductName,
+            ProductImageUrl = s.Detail.Product.MainImageUrl,
+            s.Detail.WeightClass,
+            s.Detail.GripSize,
+            s.Detail.BalancePoint,
+            s.Detail.Stiffness
+        })
+        .ToListAsync();
+            var totalCount = await _context.ProductSerials
                 .AsNoTracking()
                 .Where(s => s.Status == normalizedStatus)
-                .OrderByDescending(s => s.ImportDate)
-                .ThenByDescending(s => s.SerialId)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(s => new
-                {
-                    s.SerialId,
-                    s.DetailId,
-                    s.SerialNumber,
-                    s.Status,
-                    s.ImportDate,
-                    s.Detail.WeightClass,
-                    s.Detail.GripSize,
-                    s.Detail.BalancePoint,
-                    s.Detail.Stiffness
-                })
-                .ToListAsync();
-
-            if (!serialRows.Any())
-                return new List<VariantSerialsResponse>();
-
-            var detailIds = serialRows.Select(s => s.DetailId).Distinct().ToList();
-            var countRows = await _context.ProductSerials
-                .AsNoTracking()
-                .Where(s => detailIds.Contains(s.DetailId))
-                .GroupBy(s => s.DetailId)
-                .Select(g => new
-                {
-                    DetailId = g.Key,
-                    TotalCount = g.Count(),
-                    InStockCount = g.Count(s => s.Status == ProductSerialStatus.InStock),
-                    SoldCount = g.Count(s => s.Status == ProductSerialStatus.Sold),
-                    DefectiveCount = g.Count(s => s.Status == ProductSerialStatus.Defective),
-                    ReservedCount = g.Count(s => s.Status == ProductSerialStatus.Reserved)
-                })
-                .ToDictionaryAsync(x => x.DetailId);
-
-            return serialRows
-                .GroupBy(s => new
-                {
-                    s.DetailId,
-                    s.WeightClass,
-                    s.GripSize,
-                    s.BalancePoint,
-                    s.Stiffness
-                })
-                .Select(g =>
-                {
-                    countRows.TryGetValue(g.Key.DetailId, out var counts);
-
-                    return new VariantSerialsResponse
-                    {
-                        DetailId = g.Key.DetailId,
-                        VariantInfo = BuildVariantInfo(g.Key.WeightClass, g.Key.GripSize, g.Key.BalancePoint, g.Key.Stiffness),
-                        TotalCount = counts?.TotalCount ?? 0,
-                        InStockCount = counts?.InStockCount ?? 0,
-                        SoldCount = counts?.SoldCount ?? 0,
-                        DefectiveCount = counts?.DefectiveCount ?? 0,
-                        ReservedCount = counts?.ReservedCount ?? 0,
-                        Serials = g.Select(s => new SerialNumberDto
-                        {
-                            SerialId = s.SerialId,
-                            SerialNumber = s.SerialNumber,
-                            Status = s.Status,
-                            ImportDate = s.ImportDate ?? DateTime.UtcNow
-                        }).ToList()
-                    };
-                })
-                .ToList();
+                .CountAsync();
+            var res = serials.Select(s => new InventorySerialResponse
+            {
+                SerialId = s.SerialId,
+                SerialNumber = s.SerialNumber,
+                Status = s.Status,
+                ImportDate = s.ImportDate,
+                DetailId = s.DetailId,
+                ProductId = s.ProductId,
+                ProductName = s.ProductName,
+                ProductImageUrl = s.ProductImageUrl,
+                VariantInfo = BuildVariantInfo(s.WeightClass, s.GripSize, s.BalancePoint, s.Stiffness),
+            }).ToList();
+            return (res, totalCount);
         }
 
         public async Task<bool> MarkSerialAsDefectiveAsync(int serialId)

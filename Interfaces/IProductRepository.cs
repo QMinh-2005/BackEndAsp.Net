@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.Models;
 
@@ -10,6 +11,7 @@ namespace MyOwnLearning.Interfaces
         Task<(List<Product> products, int TotalCount)> GetAll();
         Task<bool> IsExistProduct(string productName);
         Task<(List<Product> products, int TotalCount)> SearchAsync(string? categorySlug, string? brandSlug, string? keyword, decimal? minPrice, decimal? maxPrice, bool? Voucher, bool? isBestSeller, string? sortBy, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterProductsAsync(ProductFilterRequest request);
         Task<List<Product>> GetProductsForHomePageAsync(List<int> categoryIds);
         Task<(List<Product> products, int TotalCount)> GetProductsByCategorySlugAsync(string categorySlug, int page, int pageSize);
 

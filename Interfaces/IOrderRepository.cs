@@ -20,8 +20,7 @@ namespace MyOwnLearning.Interfaces
         Task<Order> GetOrderByIdAndUserIdAsync(int orderId, int userId);
         Task<(List<Order> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
         Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrderSummariesByStatusIdAsync(int statusId, int page, int pageSize);
-        Task<(List<Order> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
-        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderSummaryAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
+        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderSummaryAdminAsync(string? keyword, DateTime? fromDate, DateTime? toDate, decimal? minAmount, decimal? maxAmount, int? statusId, int page, int pageSize);
         Task<int> CountSuccessfulUsesAsync(int userId, int voucherId);
     }
 }
