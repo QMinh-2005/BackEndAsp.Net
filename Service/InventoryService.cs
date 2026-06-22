@@ -5,8 +5,8 @@ namespace MyOwnLearning.Service
 {
     public interface IInventoryService
     {
-        Task<List<LowStockVariantResponse>> GetLowStockVariantsAsync(int threshold = 5);
-        Task<List<VariantSerialsResponse>> GetSerialsByStatusAsync(string status, int page, int pageSize);
+        Task<(List<LowStockVariantResponse> Items, int TotalCount)> GetLowStockVariantsAsync(int threshold = 5);
+        Task<(List<InventorySerialResponse> Items, int TotalCount)> GetSerialsByStatusAsync(string status, int page, int pageSize);
         Task<bool> MarkSerialAsDefectiveAsync(int serialId);
         Task<bool> MarkSerialAsInStockAsync(int serialId);
     }
@@ -20,7 +20,7 @@ namespace MyOwnLearning.Service
             _inventoryRepository = inventoryRepository;
         }
 
-        public async Task<List<LowStockVariantResponse>> GetLowStockVariantsAsync(int threshold = 5)
+        public async Task<(List<LowStockVariantResponse> Items, int TotalCount)> GetLowStockVariantsAsync(int threshold = 5)
         {
             if (threshold < 0)
                 throw new ArgumentException("Threshold must be greater than or equal to 0.");
@@ -28,7 +28,7 @@ namespace MyOwnLearning.Service
             return await _inventoryRepository.GetLowStockVariantsAsync(threshold);
         }
 
-        public async Task<List<VariantSerialsResponse>> GetSerialsByStatusAsync(string status, int page, int pageSize)
+        public async Task<(List<InventorySerialResponse> Items, int TotalCount)> GetSerialsByStatusAsync(string status, int page, int pageSize)
         {
             ValidatePaging(page, pageSize);
             return await _inventoryRepository.GetSerialsByStatusAsync(status, page, pageSize);

@@ -222,11 +222,11 @@ namespace MyOwnLearning.Controllers
         }
         [HttpGet("admin-search")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> SearchOrderAdmin([FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] DateTime? orderDate, [FromQuery] int? statusId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> SearchOrderAdmin([FromQuery] string? keyword, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, [FromQuery] decimal? minAmount, [FromQuery] decimal? maxAmount, [FromQuery] int? statusId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             try
             {
-                var (orders, totalCount) = await _orderService.SearchOrderAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
+                var (orders, totalCount) = await _orderService.SearchOrderAdminAsync(keyword, fromDate, toDate, minAmount, maxAmount, statusId, page, pageSize);
                 int totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
                 return Ok(new
                 {

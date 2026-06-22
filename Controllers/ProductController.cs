@@ -5,12 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32.SafeHandles;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Admin;
+using MyOwnLearning.DTO.Request.Customer;
 using MyOwnLearning.DTO.Response;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
 using MyOwnLearning.Repositories;
 using MyOwnLearning.Service;
+using static MyOwnLearning.DTO.Request.Admin.Statistic.StatisticRequest;
 
 namespace MyOwnLearning.Controllers
 {
@@ -65,7 +67,6 @@ namespace MyOwnLearning.Controllers
                 totalPages = (int)Math.Ceiling((double)totalCount / pagesize)
             });
         }
-
         [HttpGet("home")]
         public async Task<IActionResult> GetHomeProducts()
         {
@@ -490,6 +491,41 @@ namespace MyOwnLearning.Controllers
             {
                 return StatusCode(500, new { Message = "Lỗi khi xóa ảnh: " + ex.Message });
             }
+        }
+        [HttpPost("upload-image")]
+        [Authorize(Roles = "Admin")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadProductImage(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { Message = "Vui lòng chọn ảnh cần tải lên." });
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest(new { Message = "Chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF." });
+
+            var uploadsFolder = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "wwwroot",
+                "uploads",
+                "products"
+            );
+
+            Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = $"{Guid.NewGuid():N}{extension}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var imageUrl = $"{Request.Scheme}://{Request.Host}/uploads/products/{fileName}";
+
+            return Ok(new { ImageUrl = imageUrl });
         }
     }
 }

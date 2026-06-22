@@ -22,7 +22,8 @@ namespace MyOwnLearning.Controllers
             try
             {
                 var result = await _inventoryService.GetLowStockVariantsAsync(threshold);
-                return Ok(new { Items = result, TotalCount = result.Count });
+                int TotalPageCount = (int)Math.Ceiling((double)result.TotalCount / threshold);
+                return Ok(new { Items = result.Items, TotalCount = result.TotalCount, TotalPageCount });
             }
             catch (Exception ex)
             {
@@ -39,7 +40,8 @@ namespace MyOwnLearning.Controllers
             try
             {
                 var result = await _inventoryService.GetSerialsByStatusAsync(status, page, pageSize);
-                return Ok(new { Items = result, Page = page, PageSize = pageSize });
+                var TotalPageCount = (int)Math.Ceiling((double)result.TotalCount / pageSize);
+                return Ok(new { Items = result.Items, Page = page, PageSize = pageSize, TotalCount = result.TotalCount, TotalPageCount });
             }
             catch (Exception ex)
             {

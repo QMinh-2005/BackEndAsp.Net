@@ -269,52 +269,26 @@ namespace MyOwnLearning.Repositories
             return (orders, totalCount);
         }
 
-        public async Task<(List<Order> Orders, int TotalCount)> SearchOrderAdminAsync(
-            decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
-        {
-            var query = QueryOrderWithDetails().AsQueryable();
-
-            if (minPrice.HasValue)
-                query = query.Where(o => o.FinalAmount >= minPrice.Value);
-
-            if (maxPrice.HasValue)
-                query = query.Where(o => o.FinalAmount <= maxPrice.Value);
-
-            if (statusId.HasValue)
-            {
-                if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
-                    throw new ArgumentException("Trạng thái đơn hàng không hợp lệ.");
-
-                query = query.Where(o => o.OrderStatusId == statusId.Value);
-            }
-
-            if (orderDate.HasValue)
-            {
-                var startDate = orderDate.Value.Date;
-                var endDate = startDate.AddDays(1);
-                query = query.Where(o => o.OrderDate >= startDate && o.OrderDate < endDate);
-            }
-
-            var totalCount = await query.CountAsync();
-            var orders = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return (orders, totalCount);
-        }
 
         public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderSummaryAdminAsync(
-            decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
+            string? keyword, DateTime? fromDate, DateTime? toDate, decimal? minAmount, decimal? maxAmount, int? statusId, int page, int pageSize)
         {
             var query = _dbset.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                var key = keyword.Trim();
+                var isOrderId = int.TryParse(key, out var orderId);
 
-            if (minPrice.HasValue)
-                query = query.Where(o => o.FinalAmount >= minPrice.Value);
+                query = query.Where(o =>
+                    (isOrderId && o.OrderId == orderId) ||
+                    (o.ReceiverName != null && o.ReceiverName.Contains(key)) ||
+                    o.PhoneNumber.Contains(key));
+            }
+            if (minAmount.HasValue)
+                query = query.Where(o => o.FinalAmount >= minAmount.Value);
 
-            if (maxPrice.HasValue)
-                query = query.Where(o => o.FinalAmount <= maxPrice.Value);
-
+            if (maxAmount.HasValue)
+                query = query.Where(o => o.FinalAmount <= maxAmount.Value);
             if (statusId.HasValue)
             {
                 if (!Enum.IsDefined(typeof(OrderStatusEnum), statusId))
@@ -322,13 +296,18 @@ namespace MyOwnLearning.Repositories
 
                 query = query.Where(o => o.OrderStatusId == statusId.Value);
             }
-
-            if (orderDate.HasValue)
+            if (fromDate.HasValue)
             {
-                var startDate = orderDate.Value.Date;
-                var endDate = startDate.AddDays(1);
-                query = query.Where(o => o.OrderDate >= startDate && o.OrderDate < endDate);
+                var from = fromDate.Value.Date;
+                query = query.Where(o => o.OrderDate >= from);
             }
+
+            if (toDate.HasValue)
+            {
+                var toExclusive = toDate.Value.Date.AddDays(1);
+                query = query.Where(o => o.OrderDate < toExclusive);
+            }
+
 
             var totalCount = await query.CountAsync();
             var orders = await ProjectOrderSummaries(query)

@@ -18,7 +18,7 @@ namespace MyOwnLearning.Service
         Task<OrderResponse> CancelMyOrderAsync(int orderId, int userId);
         Task<OrderResponse> CancelOrderByAdminAsync(int orderId, int adminId, string reason);
         Task<(List<OrderSummaryResponse> Orders, int TotalCount)> GetOrdersByStatusIdAsync(int statusId, int page, int pageSize);
-        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderAdminAsync(decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize);
+        Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderAdminAsync(string? keyword, DateTime? fromDate, DateTime? toDate, decimal? minAmount, decimal? maxAmount, int? statusId, int page, int pageSize);
     }
 
     public class OrderService : IOrderService
@@ -137,9 +137,9 @@ namespace MyOwnLearning.Service
         }
 
         public async Task<(List<OrderSummaryResponse> Orders, int TotalCount)> SearchOrderAdminAsync(
-            decimal? minPrice, decimal? maxPrice, DateTime? orderDate, int? statusId, int page, int pageSize)
+            string? keyword, DateTime? fromDate, DateTime? toDate, decimal? minAmount, decimal? maxAmount, int? statusId, int page, int pageSize)
         {
-            return await _orderRepository.SearchOrderSummaryAdminAsync(minPrice, maxPrice, orderDate, statusId, page, pageSize);
+            return await _orderRepository.SearchOrderSummaryAdminAsync(keyword, fromDate, toDate, minAmount, maxAmount, statusId, page, pageSize);
         }
 
         public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request)
