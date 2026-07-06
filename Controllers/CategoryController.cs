@@ -69,5 +69,12 @@ namespace MyOwnLearning.Controllers
             }
             return Ok(new { Message = "Xóa danh mục thành công" });
         }
+
+        [HttpGet("product-count")]
+        public async Task<IActionResult> GetProductCountPerCategory()
+        {
+            var result = await _categoryService.GetProductCountPerCategoryAsync();
+            return Ok(new { Message = "Thành công", Data = result });
+        }
     }
 }

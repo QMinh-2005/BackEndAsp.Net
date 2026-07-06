@@ -6,6 +6,7 @@ using Microsoft.Win32.SafeHandles;
 using MyOwnLearning.Data;
 using MyOwnLearning.DTO.Request.Admin;
 using MyOwnLearning.DTO.Response;
+using MyOwnLearning.DTO.Response.Admin;
 using MyOwnLearning.DTO.Response.Customer;
 using MyOwnLearning.Interfaces;
 using MyOwnLearning.Models;
@@ -115,28 +116,137 @@ namespace MyOwnLearning.Controllers
             }
         }
 
-        //Hàm tạo một sản phẩm => CÓ thể cho admin nhập tay trong hệ thống
+        // ── Helper dùng chung cho tất cả admin filter endpoints ──────────────────
+        private IActionResult AdminOk(List<ProductAdminResponse> products, int totalCount, int page, int pagesize)
+        {
+            var avgPrice = products.Count > 0
+                ? products.Average(p => (double)(p.DiscountPrice.HasValue && p.DiscountPrice > 0
+                    ? p.DiscountPrice.Value : p.BasePrice))
+                : (double?)null;
+            return Ok(new
+            {
+                Message = "Thành công",
+                Items = products,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pagesize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / pagesize),
+                AveragePrice = avgPrice
+            });
+        }
+
+        // ── Base: keyword + single category/brand ────────────────────────────────
         [HttpGet("product-management")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetProductsForManagement([FromQuery] string? keyword, [FromQuery] int? categoryId, [FromQuery] int? brandId, int? minPrice, int? maxPrice, int page = 1, int pagesize = 12)
+        public async Task<IActionResult> GetProductsForManagement(
+            [FromQuery] string? keyword, [FromQuery] int? categoryId, [FromQuery] int? brandId,
+            int page = 1, int pagesize = 12)
         {
             try
             {
-                var (products, totalCount) = await _productService.GetProductsForAdminAsync(keyword, categoryId, brandId, minPrice, maxPrice, page, pagesize);
-                return Ok(new
-                {
-                    Message = "Thành công",
-                    Items = products,
-                    TotalCount = totalCount,
-                    Page = page,
-                    PageSize = pagesize,
-                    TotalPages = (int)Math.Ceiling((double)totalCount / pagesize)
-                });
+                var (products, totalCount) = await _productService.GetProductsForAdminAsync(keyword, categoryId, brandId, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
             }
-            catch (Exception ex)
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lọc theo khoảng giá ─────────────────────────────────────
+        [HttpGet("product-management/filter-price")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByPrice(
+            [FromQuery] int? minPrice, [FromQuery] int? maxPrice,
+            int page = 1, int pagesize = 12)
+        {
+            try
             {
-                return StatusCode(500, new { Message = "Lỗi hệ thống: " + ex.Message });
+                var (products, totalCount) = await _productService.FilterByPriceAsync(minPrice, maxPrice, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
             }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lọc theo nhiều nhãn hiệu ────────────────────────────────
+        [HttpGet("product-management/filter-brands")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByBrands(
+            [FromQuery] string brandIds, int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.FilterByBrandsAsync(brandIds, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lọc theo nhiều danh mục ─────────────────────────────────
+        [HttpGet("product-management/filter-categories")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByCategories(
+            [FromQuery] string categoryIds, int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.FilterByCategoriesAsync(categoryIds, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lọc theo trạng thái tồn kho ─────────────────────────────
+        [HttpGet("product-management/filter-stock")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByStock(
+            [FromQuery] string stockStatus, int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.FilterByStockAsync(stockStatus, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lấy SP đang khuyến mãi ──────────────────────────────────
+        [HttpGet("product-management/filter-discount")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByDiscount(int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.FilterByDiscountAsync(page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Filter: chỉ lọc theo đánh giá tối thiểu ─────────────────────────────
+        [HttpGet("product-management/filter-rating")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> FilterByRating(
+            [FromQuery] int minRating, int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.FilterByRatingAsync(minRating, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
+        }
+
+        // ── Sort: chỉ sắp xếp theo tiêu chí ─────────────────────────────────────
+        [HttpGet("product-management/sort")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> SortProducts(
+            [FromQuery] string sortBy, [FromQuery] bool sortDesc = true,
+            int page = 1, int pagesize = 12)
+        {
+            try
+            {
+                var (products, totalCount) = await _productService.SortProductsAsync(sortBy, sortDesc, page, pagesize);
+                return AdminOk(products, totalCount, page, pagesize);
+            }
+            catch (Exception ex) { return StatusCode(500, new { Message = ex.Message }); }
         }
 
         [HttpPost]

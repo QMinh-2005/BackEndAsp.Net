@@ -75,6 +75,7 @@ namespace MyOwnLearning.Repositories
             return (products, TotalCount);
         }
 
+
         public async Task<List<Product>> GetProductsForHomePageAsync(List<int> categoryIds)
         {
             // Lấy ra danh sách sản phẩm thuộc các Category truyền vào
@@ -136,41 +137,112 @@ namespace MyOwnLearning.Repositories
                     .ThenInclude(d => d.ProductSerials)
                 .FirstOrDefaultAsync(p => p.ProductId == productId);
         }
-        public async Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int? minPrice, int? maxPrice, int page, int pageSize)
-        {
-            var query = _dbset
-                .Include(p => p.Brand)
-                .Include(p => p.Category)
-                .Include(p => p.ProductDetails)
-                .AsQueryable();
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                query = query.Where(p => p.ProductName.Contains(keyword));
-            }
-            if (categoryId.HasValue)
-            {
-                query = query.Where(p => p.CategoryId == categoryId.Value);
-            }
-            if (brandId.HasValue)
-            {
-                query = query.Where(p => p.BrandId == brandId.Value);
-            }
-            if (minPrice.HasValue)
-            {
-                query = query.Where(p => p.BasePrice > minPrice.Value);
-            }
-            if (maxPrice.HasValue)
-            {
-                query = query.Where(p => p.BasePrice < maxPrice.Value);
-            }
+        // ── Helpers dùng nội bộ ──────────────────────────────────────────────────
+        private IQueryable<Product> AdminBaseQuery() =>
+            _dbset.Include(p => p.Brand).Include(p => p.Category).Include(p => p.ProductDetails).AsQueryable();
 
-            var totalCount = await query.CountAsync();
-            var products = await query
-                .OrderByDescending(p => p.ProductId)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-            return (products, totalCount);
+        private async Task<(List<Product>, int)> PageAsync(IQueryable<Product> query, int page, int pageSize)
+        {
+            var count = await query.CountAsync();
+            var items = await query.OrderByDescending(p => p.ProductId)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            return (items, count);
+        }
+
+        // ── Base: keyword + single category/brand ────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(
+            string? keyword, int? categoryId, int? brandId, int page, int pageSize)
+        {
+            var q = AdminBaseQuery();
+            if (!string.IsNullOrWhiteSpace(keyword)) q = q.Where(p => p.ProductName.Contains(keyword));
+            if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId.Value);
+            if (brandId.HasValue) q = q.Where(p => p.BrandId == brandId.Value);
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lọc theo khoảng giá ─────────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByPriceAsync(
+            int? minPrice, int? maxPrice, int page, int pageSize)
+        {
+            var q = AdminBaseQuery();
+            if (minPrice.HasValue) q = q.Where(p => p.BasePrice >= minPrice.Value);
+            if (maxPrice.HasValue) q = q.Where(p => p.BasePrice <= maxPrice.Value);
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lọc theo nhiều nhãn hiệu ────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByBrandsAsync(
+            string brandIds, int page, int pageSize)
+        {
+            var ids = brandIds.Split(',').Select(int.Parse).ToList();
+            var q = AdminBaseQuery().Where(p => p.BrandId.HasValue && ids.Contains(p.BrandId.Value));
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lọc theo nhiều danh mục ─────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByCategoriesAsync(
+            string categoryIds, int page, int pageSize)
+        {
+            var ids = categoryIds.Split(',').Select(int.Parse).ToList();
+            var q = AdminBaseQuery().Where(p => p.CategoryId.HasValue && ids.Contains(p.CategoryId.Value));
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lọc theo trạng thái tồn kho ─────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByStockAsync(
+            string stockStatus, int page, int pageSize)
+        {
+            var q = AdminBaseQuery();
+            q = stockStatus switch
+            {
+                "inStock"    => q.Where(p => p.ProductDetails.Sum(d => d.StockQuantity ?? 0) > 5),
+                "lowStock"   => q.Where(p => p.ProductDetails.Sum(d => d.StockQuantity ?? 0) >= 1
+                                          && p.ProductDetails.Sum(d => d.StockQuantity ?? 0) <= 5),
+                "outOfStock" => q.Where(p => p.ProductDetails.Sum(d => d.StockQuantity ?? 0) == 0),
+                _ => q
+            };
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lấy SP đang khuyến mãi ──────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByDiscountAsync(
+            int page, int pageSize)
+        {
+            var q = AdminBaseQuery().Where(p => p.DiscountPrice != null && p.DiscountPrice > 0);
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Filter: chỉ lọc theo đánh giá tối thiểu ─────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> FilterByRatingAsync(
+            int minRating, int page, int pageSize)
+        {
+            var minRat = (double)minRating;
+            var q = AdminBaseQuery().Where(p =>
+                p.ProductDetails.SelectMany(d => d.OrderDetails).Any(od => od.Review != null) &&
+                p.ProductDetails.SelectMany(d => d.OrderDetails)
+                    .Where(od => od.Review != null)
+                    .Average(od => (double)od.Review!.Rating) >= minRat);
+            return await PageAsync(q, page, pageSize);
+        }
+
+        // ── Sort: chỉ sắp xếp theo tiêu chí ─────────────────────────────────────
+        public async Task<(List<Product> products, int TotalCount)> SortProductsAsync(
+            string sortBy, bool sortDesc, int page, int pageSize)
+        {
+            var q = AdminBaseQuery();
+            var count = await q.CountAsync();
+            var ordered = sortBy switch
+            {
+                "price" => sortDesc ? q.OrderByDescending(p => p.BasePrice) : q.OrderBy(p => p.BasePrice),
+                "name"  => sortDesc ? q.OrderByDescending(p => p.ProductName) : q.OrderBy(p => p.ProductName),
+                "stock" => sortDesc ? q.OrderByDescending(p => p.ProductDetails.Sum(d => d.StockQuantity ?? 0))
+                                    : q.OrderBy(p => p.ProductDetails.Sum(d => d.StockQuantity ?? 0)),
+                "sold"  => sortDesc ? q.OrderByDescending(p => p.SoldQuantity ?? 0)
+                                    : q.OrderBy(p => p.SoldQuantity ?? 0),
+                _       => q.OrderByDescending(p => p.ProductId),
+            };
+            var items = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            return (items, count);
         }
     }
 }

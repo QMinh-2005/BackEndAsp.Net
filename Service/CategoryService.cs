@@ -11,7 +11,7 @@ namespace MyOwnLearning.Service
         Task<Category?> CreateCategoryAsync(string categoryName);
         Task<bool> DeleteCategoryAsync(int categoryId);
         Task<CategoryResponse> UpdateCategoryAsync(int categoryId, string newCategoryName);
-
+        Task<List<CategoryProductCountResponse>> GetProductCountPerCategoryAsync();
     }
     public class CategoryService : ICategotyService
     {
@@ -65,5 +65,8 @@ namespace MyOwnLearning.Service
             }
             return false;
         }
+
+        public Task<List<CategoryProductCountResponse>> GetProductCountPerCategoryAsync()
+            => _categoryRepository.GetProductCountPerCategoryAsync();
     }
 }

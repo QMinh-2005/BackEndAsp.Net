@@ -17,6 +17,15 @@ namespace MyOwnLearning.Interfaces
 
         Task<(List<ProductDetail> productDetails, int TotalCount)> GetProductDetailsByIdAsync(int productId, int page, int pageSize);
         Task<Product?> GetProductForDeletionAsync(int productId);
-        Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int? minPrice, int? maxPrice, int page, int pageSize);
+
+        // ── Admin: mỗi method chỉ xử lý đúng 1 tiêu chí ─────────────────────
+        Task<(List<Product> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByPriceAsync(int? minPrice, int? maxPrice, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByBrandsAsync(string brandIds, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByCategoriesAsync(string categoryIds, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByStockAsync(string stockStatus, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByDiscountAsync(int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> FilterByRatingAsync(int minRating, int page, int pageSize);
+        Task<(List<Product> products, int TotalCount)> SortProductsAsync(string sortBy, bool sortDesc, int page, int pageSize);
     }
 }

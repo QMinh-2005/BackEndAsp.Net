@@ -20,8 +20,15 @@ namespace MyOwnLearning.Service
         Task<(List<ProductResponse> products, int TotalCount)> GetProductByCategorySlugAsync(string categorySlug, int page, int pageSize);
         Task<ProductDetailResponse?> GetProductDetailAsync(string slug);
 
-        //Trang 1
-        Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int? minPrice, int? maxPrice, int page, int pageSize);
+        //Trang 1 — mỗi method chỉ xử lý đúng 1 tiêu chí
+        Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brandId, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByPriceAsync(int? minPrice, int? maxPrice, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByBrandsAsync(string brandIds, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByCategoriesAsync(string categoryIds, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByStockAsync(string stockStatus, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByDiscountAsync(int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByRatingAsync(int minRating, int page, int pageSize);
+        Task<(List<ProductAdminResponse> products, int TotalCount)> SortProductsAsync(string sortBy, bool sortDesc, int page, int pageSize);
         Task<Product> CreateProductAsync(CreateProductRequest request);
         Task<Product> UpdateProductAsync(int idPro, UpdateProductRequest request);
         Task<bool> DeleteProductAsync(int productId);
@@ -178,28 +185,83 @@ namespace MyOwnLearning.Service
             return await _productRepository.SearchAsync(categorySlug, brandSlug, keyword, minPrice, maxPrice, Voucher, isBestSeller, sortBy, page, pageSize);
         }
 
-        //add 1 sản phẩm
-        public async Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(string? keyword, int? categoryId, int? brand, int? minPrice, int? maxPrice, int page, int pageSize)
-        {
-            var (products, totalCount) = await _productRepository.GetProductsForAdminAsync(keyword, categoryId, brand, minPrice, maxPrice, page, pageSize);
-            var response = products.Select(p => new ProductAdminResponse
+        // ── Helper mapping dùng chung ─────────────────────────────────────────────
+        private static List<ProductAdminResponse> MapToAdminResponse(List<Product> products) =>
+            products.Select(p => new ProductAdminResponse
             {
-                ProductId = p.ProductId,
-                ProductName = p.ProductName,
-                MainImageUrl = p.MainImageUrl,
-                BasePrice = p.BasePrice,
-                DiscountPrice = p.DiscountPrice,
+                ProductId       = p.ProductId,
+                ProductName     = p.ProductName,
+                MainImageUrl    = p.MainImageUrl,
+                BasePrice       = p.BasePrice,
+                DiscountPrice   = p.DiscountPrice,
+                delta = (p.BasePrice - p.DiscountPrice),
                 DiscountPercent = p.DiscountPrice.HasValue && p.BasePrice > 0
-                    ? (int)Math.Round((p.BasePrice - p.DiscountPrice.Value) / p.BasePrice * 100)
-                    : 0,
-                BrandName = p.Brand != null ? p.Brand.BrandName : "N/A",
-                CategoryName = p.Category != null ? p.Category.CategoryName : "N/A",
+                    ? (int)Math.Round((p.BasePrice - p.DiscountPrice.Value) / p.BasePrice * 100) : 0,
+                BrandName    = p.Brand?.BrandName ?? "N/A",
+                CategoryName = p.Category?.CategoryName ?? "N/A",
                 VariantsCount = p.ProductDetails?.Count ?? 0,
-                TotalStock = p.ProductDetails?.Sum(d => d.StockQuantity ?? 0) ?? 0,
-                SoldQuantity = p.SoldQuantity ?? 0,
-            }).ToList();
+                TotalStock    = p.ProductDetails?.Sum(d => d.StockQuantity ?? 0) ?? 0,
+                SoldQuantity  = p.SoldQuantity ?? 0,
+            }).OrderBy(p => p.delta).ToList();
+
+        // ── Base search ───────────────────────────────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> GetProductsForAdminAsync(
+            string? keyword, int? categoryId, int? brand, int page, int pageSize)
+        {
+            var (products, totalCount) = await _productRepository.GetProductsForAdminAsync(keyword, categoryId, brand, page, pageSize);
+            var response = MapToAdminResponse(products);
             return (response, totalCount);
         }
+
+        // ── Filter: chỉ lọc theo khoảng giá ─────────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByPriceAsync(int? minPrice, int? maxPrice, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByPriceAsync(minPrice, maxPrice, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Filter: chỉ lọc theo nhiều nhãn hiệu ────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByBrandsAsync(string brandIds, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByBrandsAsync(brandIds, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Filter: chỉ lọc theo nhiều danh mục ─────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByCategoriesAsync(string categoryIds, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByCategoriesAsync(categoryIds, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Filter: chỉ lọc theo trạng thái tồn kho ─────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByStockAsync(string stockStatus, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByStockAsync(stockStatus, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Filter: chỉ lấy SP đang khuyến mãi ──────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByDiscountAsync(int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByDiscountAsync(page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Filter: chỉ lọc theo đánh giá tối thiểu ─────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> FilterByRatingAsync(int minRating, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.FilterByRatingAsync(minRating, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
+        // ── Sort: chỉ sắp xếp ────────────────────────────────────────────────────
+        public async Task<(List<ProductAdminResponse> products, int TotalCount)> SortProductsAsync(string sortBy, bool sortDesc, int page, int pageSize)
+        {
+            var (products, count) = await _productRepository.SortProductsAsync(sortBy, sortDesc, page, pageSize);
+            return (MapToAdminResponse(products), count);
+        }
+
         public async Task<Product?> CreateProductAsync(CreateProductRequest request)
         {
             var checkBrand = await _brandRepository.GetByIdAsync(request.BrandId);

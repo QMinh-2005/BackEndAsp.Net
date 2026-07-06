@@ -7,6 +7,8 @@
         public string? MainImageUrl { get; set; }
         public decimal BasePrice { get; set; }
         public decimal? DiscountPrice { get; set; }
+
+        public decimal? delta {get; set;}
         public int DiscountPercent { get; set; }
 
         public string BrandName { get; set; } = null!;
